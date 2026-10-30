@@ -1,0 +1,196 @@
+app:
+  config:
+    usuarios-url: ${MSVC_USER:http://localhost:8001}
+    calendar-url: ${MSVC_CALENDAR:http://localhost:9001}
+    followers-url: ${MSVC_FOLLOWERS:http://localhost:9002}
+    geography-url: ${MSVC_GEOGRAPHY:http://localhost:9003}
+    elections-url: ${MSVC_ELECTIONS:http://localhost:9004}
+    elections-structure-url: ${MSVC_ELECTIONS_STRUCTURE:http://localhost:9010}
+    elections-results-url: ${MSVC_ELECTIONS_RESULTS:http://localhost:9009}
+    logfile-url: ${MSVC_LOGFILE:http://localhost:9005}
+    visits-url: ${MSVC_VISITS:http://localhost:9006}
+    canvasAndWalls-url: ${MSVC_CANVASANDWALLS:http://localhost:9007}
+    citizen-issues-url: ${MSVC_CITIZEN_ISSUES:http://localhost:9008}
+    document-management-url: ${MSVC_DOCUMENT_MANAGEMENT:http://localhost:9011}
+    polls-url: ${MSVC_POLLS:http://localhost:9012}
+    survey-url: ${MSVC_SURVEY:http://localhost:9013}
+    structure-url: ${MSVC_STRUCTURE:http://localhost:9014}
+    electoral-history-url: ${MSVC_ELECTORAL_HISTORY:http://localhost:9015}
+
+    keycloak:
+      url: ${KEYCLOAK_URL:http://localhost:8080}
+      realm: ${KEYCLOAK_REALM:electorama-realm}
+      client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+      client-id: ${KEYCLOAK_CLIENT_ID:electorama-back}
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  application:
+    name: electorama-msvc-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - TokenRelay
+      routes:
+        - id: electorama-msvc-user
+          uri: ${app.config.usuarios-url}
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-calendar
+          uri: ${app.config.calendar-url}
+          predicates:
+            - Path=/api/calendar/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-followers
+          uri: ${app.config.followers-url}
+          predicates:
+            - Path=/api/followers/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-geography
+          uri: ${app.config.geography-url}
+          predicates:
+            - Path=/api/geography/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-elections-structure
+          uri: ${app.config.elections-structure-url}
+          predicates:
+            - Path=/api/elections/structure/**
+          filters:
+            - StripPrefix=3
+        - id: electorama-msvc-elections-results
+          uri: ${app.config.elections-results-url}
+          predicates:
+            - Path=/api/elections/results/**
+          filters:
+            - StripPrefix=3
+        - id: electorama-msvc-elections
+          uri: ${app.config.elections-url}
+          predicates:
+            - Path=/api/elections/**
+          filters:
+            - StripPrefix=2
+
+        - id: electorama-msvc-logfile
+          uri: ${app.config.logfile-url}
+          predicates:
+            - Path=/api/logfile/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-visits
+          uri: ${app.config.visits-url}
+          predicates:
+            - Path=/api/visits/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-canvasAndWalls
+          uri: ${app.config.canvasAndWalls-url}
+          predicates:
+            - Path=/api/canvasAndWalls/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-citizen-issues
+          uri: ${app.config.citizen-issues-url}
+          predicates:
+            - Path=/api/citizen-issues/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-documents-management
+          uri: ${app.config.document-management-url}
+          predicates:
+            - Path=/api/documentManagement/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-polls
+          uri: ${app.config.polls-url}
+          predicates:
+            - Path=/api/polls/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-survey
+          uri: ${app.config.survey-url}
+          predicates:
+            - Path=/api/survey/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-structure
+          uri: ${app.config.structure-url}
+          predicates:
+            - Path=/api/structure/**
+          filters:
+            - StripPrefix=2
+        - id: electorama-msvc-electoral-history
+          uri: ${app.config.electoral-history-url}
+          predicates:
+            - Path=/api/electoral-history/**
+          filters:
+            - StripPrefix=2
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            authorization-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/auth
+            jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+            token-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/token
+            user-info-authentication-method: header
+            user-info-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/userinfo
+            user-name-attribute: preferred_username
+        registration:
+          electorama-back:
+            authorization-grant-type: authorization_code
+            client-id: ${app.config.keycloak.client-id}
+            client-secret: ${app.config.keycloak.client-secret}
+            provider: keycloak
+            redirect-uri: '{baseUrl}/login/oauth2/code/keycloak'
+            scope: openid
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+
+# expose all the spring boot actuators good for demos.
+# NEVER DO THIS in production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+server:
+  port: 8090
+  tomcat:
+    connection-timeout: 1000
+
+---
+# configure here is only active when running inside of k8s
+spring:
+  config:
+    activate:
+      on-profile: "kubernetes"
+  cloud:
+    kubernetes:
+      discovery:
+        all-namespaces: true
+---
+# configure here is only active when running outside of k8s
+spring:
+  config:
+    activate:
+      on-profile: "!kubernetes"
+
+logging:
+  level:
+    org:
+      springframework:
+        cloud:
+          gateway: DEBUG
+

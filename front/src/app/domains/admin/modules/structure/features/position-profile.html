@@ -1,0 +1,247 @@
+<!-- ─────────────────────────── la cuenta del titular ─────────────────────────── -->
+<app-section-card heading="Perfil del {{ levelLabel().toLowerCase() }}">
+  @switch (account().kind) {
+    @case ('none') {
+      <p class="text-sm text-neutral-500">
+        Este nombramiento no tiene cuenta: el titular no puede entrar a la app ni al
+        tablero.
+      </p>
+    }
+    @case ('loading') {
+      <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+    }
+    @case ('missing') {
+      <p class="text-sm text-amber-700 dark:text-amber-400">
+        La cuenta del nombramiento ya no existe en Keycloak.
+      </p>
+      <p class="mt-1 font-mono text-xs break-all text-neutral-400">
+        {{ position().holderAuthId }}
+      </p>
+    }
+    @case ('forbidden') {
+      @if (isMine()) {
+        <p class="text-sm text-neutral-500">
+          Es tu cuenta. Para cambiar tu contraseña, pídeselo a quien te nombró.
+        </p>
+      } @else {
+      <p class="text-sm text-neutral-500">
+        Esta cuenta la administra la coordinación: no es de tu rama o tiene un rol de
+        coordinador o administrador.
+      </p>
+      }
+    }
+    @case ('error') {
+      <p class="text-sm text-neutral-500">No se pudo leer la cuenta. Intenta de nuevo.</p>
+    }
+  }
+
+  @if (account(); as state) {
+    @if (state.kind === 'ok') {
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div class="col-span-2">
+          <dt class="text-2xs tracking-wider text-neutral-500 uppercase">Usuario</dt>
+          <dd class="mt-0.5 font-medium break-all">{{ state.account.username }}</dd>
+        </div>
+        <div>
+          <dt class="text-2xs tracking-wider text-neutral-500 uppercase">Estado</dt>
+          <dd class="mt-0.5 flex items-center gap-1.5 font-medium">
+            <span
+              class="size-2 rounded-full"
+              [class]="state.account.enabled ? 'bg-emerald-500' : 'bg-neutral-400'"
+            ></span>
+            {{ state.account.enabled ? 'Activa' : 'Desactivada' }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-2xs tracking-wider text-neutral-500 uppercase">Alta</dt>
+          <dd class="mt-0.5 font-medium tabular-nums">
+            {{ state.account.created ? (state.account.created | date: 'dd/MM/yyyy') : '—' }}
+          </dd>
+        </div>
+        <div class="col-span-2">
+          <dt class="text-2xs tracking-wider text-neutral-500 uppercase">Rol</dt>
+          <dd class="mt-1 flex flex-wrap gap-1.5">
+            @for (role of state.account.roles; track role) {
+              <span
+                class="rounded-full bg-neutral-100 px-2 py-0.5 text-2xs font-medium text-neutral-700 dark:bg-white/5 dark:text-neutral-300"
+                [matTooltip]="role"
+                >{{ roleLabel(role) }}</span
+              >
+            } @empty {
+              <span class="text-xs text-amber-700 dark:text-amber-400"
+                >sin rol de estructura</span
+              >
+            }
+          </dd>
+        </div>
+      </dl>
+
+      <!-- cambiar contraseña: la escribe o la genera el administrador -->
+      @if (!readOnly()) {
+        <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+          <div class="text-2xs tracking-wider text-neutral-500 uppercase">
+            Cambiar contraseña
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <div class="relative min-w-48 flex-1">
+              <input
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="Nueva contraseña (8 o más)"
+                class="w-full rounded-lg border border-neutral-200 py-2 pr-10 pl-3 font-mono text-sm dark:border-neutral-800 dark:bg-transparent"
+                [ngModel]="password()"
+                (ngModelChange)="password.set($event)"
+                name="newPassword"
+              />
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-neutral-400 hover:text-neutral-600"
+                [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                (click)="showPassword.set(!showPassword())"
+              >
+                <mat-icon
+                  [svgIcon]="showPassword() ? 'eye-off' : 'eye'"
+                  class="icon-size-4"
+                />
+              </button>
+            </div>
+            <button matButton="outlined" type="button" (click)="generate()">
+              Generar
+            </button>
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="!passwordValid() || savingPassword()"
+              (click)="changePassword()"
+            >
+              {{ savingPassword() ? 'Guardando…' : 'Cambiar' }}
+            </button>
+          </div>
+          @if (password() && !passwordValid()) {
+            <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
+              Lleva al menos 8 caracteres.
+            </p>
+          }
+        </div>
+      }
+    }
+  }
+</app-section-card>
+
+<!-- ─────────────────────────── meta y avance ─────────────────────────── -->
+<app-section-card heading="Meta y avance">
+  <div class="grid grid-cols-3 gap-4 text-sm">
+    <div>
+      <div class="text-2xs tracking-wider text-neutral-500 uppercase">Meta del puesto</div>
+      <div class="mt-0.5 font-display text-2xl font-bold tabular-nums">
+        {{ position().goal ? (position().goal | number: '1.0-0') : '—' }}
+      </div>
+    </div>
+    <div>
+      <div class="text-2xs tracking-wider text-neutral-500 uppercase">Lleva</div>
+      <div class="mt-0.5 font-display text-2xl font-bold tabular-nums">
+        {{ subtree() === null ? '…' : (subtree() | number: '1.0-0') }}
+      </div>
+    </div>
+    <div>
+      <div class="text-2xs tracking-wider text-neutral-500 uppercase">Avance</div>
+      <div
+        class="mt-0.5 font-display text-2xl font-bold tabular-nums"
+        [class.text-emerald-600]="(progressPct() ?? 0) >= 100"
+      >
+        {{ progressPct() === null ? '—' : progressPct() + '%' }}
+      </div>
+    </div>
+  </div>
+  @if (progressPct(); as pct) {
+    <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+      <div
+        class="h-1.5 rounded-full transition-[width] duration-500"
+        [class]="pct >= 100 ? 'bg-emerald-500' : 'bg-primary-600'"
+        [style.width.%]="pct > 100 ? 100 : pct"
+      ></div>
+    </div>
+  }
+  @if (position().level === 'ZONE_COORDINATOR' && sectionGoal() != null) {
+    <p class="mt-3 text-xs text-neutral-500">
+      Su sección pide
+      <span class="font-medium text-neutral-700 tabular-nums dark:text-neutral-300">{{
+        sectionGoal() | number: '1.0-0'
+      }}</span>
+      en total (lista nominal × %), repartidos entre los promotores de la sección.
+    </p>
+  }
+</app-section-card>
+
+<!-- ─────────────────────────── actividad por día ─────────────────────────── -->
+<div class="flex flex-col gap-3">
+  <div class="flex items-center justify-between gap-3">
+    <div class="text-2xs font-semibold tracking-widest text-neutral-500 uppercase">
+      Actividad por día
+    </div>
+    <div class="flex rounded-full border border-neutral-200 p-0.5 text-xs dark:border-neutral-800">
+      <button
+        type="button"
+        class="rounded-full px-3 py-1"
+        [class]="range() === 'recent' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500'"
+        (click)="range.set('recent')"
+      >
+        Últimos 30 días
+      </button>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1"
+        [class]="range() === 'all' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500'"
+        (click)="range.set('all')"
+      >
+        Todo
+      </button>
+    </div>
+  </div>
+
+  @if (activityLoading()) {
+    <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+  } @else {
+    <div class="grid grid-cols-3 gap-3 text-sm">
+      <div class="rounded-lg bg-neutral-50 px-3 py-2 dark:bg-white/5">
+        <div class="text-2xs text-neutral-500">Días con captura</div>
+        <div class="font-semibold tabular-nums">
+          {{ stats().activeDays }}
+          <span class="font-normal text-neutral-400">de {{ stats().days }}</span>
+        </div>
+      </div>
+      <div class="rounded-lg bg-neutral-50 px-3 py-2 dark:bg-white/5">
+        <div class="text-2xs text-neutral-500">Promedio por día activo</div>
+        <div class="font-semibold tabular-nums">{{ stats().average | number: '1.0-0' }}</div>
+      </div>
+      <div class="rounded-lg bg-neutral-50 px-3 py-2 dark:bg-white/5">
+        <div class="text-2xs text-neutral-500">Mejor día</div>
+        @if (stats().best; as best) {
+          <div class="font-semibold tabular-nums">
+            {{ best.captured | number: '1.0-0' }}
+            <span class="font-normal text-neutral-400">{{
+              best.day + 'T12:00:00' | date: 'dd/MM/yy'
+            }}</span>
+          </div>
+        } @else {
+          <div class="font-semibold text-neutral-400">—</div>
+        }
+      </div>
+    </div>
+
+    <app-chart-card
+      [subtitle]="
+        stats().first
+          ? (stats().first + 'T12:00:00' | date: 'dd MMM yyyy') +
+            ' — ' +
+            (stats().last + 'T12:00:00' | date: 'dd MMM yyyy') +
+            ' · ' +
+            (stats().total | number: '1.0-0') +
+            ' convencidos'
+          : ''
+      "
+      [options]="activityChart()"
+      emptyText="Todavía no hay convencidos capturados en este puesto ni en lo que cuelga de él."
+    />
+  }
+</div>

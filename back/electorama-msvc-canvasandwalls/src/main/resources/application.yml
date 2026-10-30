@@ -1,0 +1,75 @@
+app:
+  config:
+    usuarios-url: ${MSVC_USER:http://localhost:8001}
+    calendar-url: ${MSVC_CALENDAR:http://localhost:9001}
+    followers-url: ${MSVC_FOLLOWERS:http://localhost:9002}
+    geography-url: ${MSVC_GEOGRAPHY:http://localhost:9003}
+    elections-url: ${MSVC_ELECTIONS:http://localhost:9004}
+    logfile-url: ${MSVC_LOGFILE:http://localhost:9005}
+    visits-url: ${MSVC_VISITS:http://localhost:9006}
+    canvasAndWalls-url: ${MSVC_CANVASANDWALLS:http://localhost:9007}
+    citizen-issues-url: ${MSVC_CITIZEN_ISSUES:http://localhost:9008}
+  dropbox:
+    access-token: ${DROPBOX_ACCESS_TOKEN:}
+    refresh-token: ${DROPBOX_REFRESH_TOKEN:}
+    app-key: ${DROPBOX_APP_KEY:}
+    app-secret: ${DROPBOX_APP_SECRET:}
+spring:
+  profiles:
+    active: dev
+  jackson:
+    time-zone: America/Mexico_City
+    locale: es_MX
+  application:
+    name: electorama-msvc-canvansandwalls
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost:5432}/${DB_DATABASE:electorama}?currentSchema=canvas_and_walls,public
+    username: ${DB_USERNAME:electorama}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        default_schema: canvas_and_walls
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/electorama-realm}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+server:
+  port: 9007
+
+
+# expose all the spring boot actuators good for demos.
+# NEVER DO THIS in production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    #    restart:
+    #      enabled: true # needed for spring cloud k8s so it can restart app when property values changes
+    health:
+      show-details: always
+---
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 5
+  config:
+    activate:
+      on-profile: "!kubernetes"
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

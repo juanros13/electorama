@@ -1,0 +1,276 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Movilización"
+    title="Visitas"
+    subtitle="Personas visitadas casa por casa"
+  >
+    <button
+      actions
+      matButton="tonal"
+      [matMenuTriggerFor]="csvMenu"
+    >
+      <mat-icon svgIcon="download" />
+      Reporte CSV
+    </button>
+    <button
+      actions
+      matButton="filled"
+      (click)="add()"
+    >
+      <mat-icon svgIcon="plus" />
+      Nueva visita
+    </button>
+  </app-page-header>
+
+  <!-- Menú de descarga CSV por rango -->
+  <mat-menu #csvMenu="matMenu">
+    <div
+      class="flex flex-col gap-3 p-4"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="text-sm font-medium">Rango de fechas</div>
+      <label class="text-xs text-neutral-500">
+        Inicial
+        <input
+          type="date"
+          class="mt-1 w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+          [value]="startDate()"
+          (change)="startDate.set($any($event.target).value)"
+        />
+      </label>
+      <label class="text-xs text-neutral-500">
+        Final
+        <input
+          type="date"
+          class="mt-1 w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+          [value]="endDate()"
+          (change)="endDate.set($any($event.target).value)"
+        />
+      </label>
+      <button
+        matButton="filled"
+        (click)="downloadCsv()"
+      >
+        Descargar
+      </button>
+    </div>
+  </mat-menu>
+
+  <!-- Búsqueda -->
+  <form (ngSubmit)="applySearch()">
+    <mat-form-field class="w-full">
+      <mat-label>Buscar</mat-label>
+      <input
+        matInput
+        [ngModel]="search()"
+        name="search"
+        (ngModelChange)="search.set($event.toUpperCase())"
+      />
+      <button
+        matIconButton
+        matSuffix
+        type="submit"
+        aria-label="Buscar"
+      >
+        <mat-icon svgIcon="search" />
+      </button>
+    </mat-form-field>
+  </form>
+
+  <!-- Tabla -->
+  <app-table-shell [loading]="loading()">
+    <table
+      mat-table
+      matSort
+      [dataSource]="data()"
+      class="w-full"
+    >
+      <ng-container matColumnDef="id">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          ID
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.id }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="openTheDoor">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Abrió
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.openTheDoor ? 'SÍ' : 'NO' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="names">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Nombre
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.names }} {{ row.lastName }} {{ row.surName }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="phone">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Celular
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.phone }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="sex">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Sexo
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.sexOfTheOneWhoOpensTheDoor }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="age">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Edad
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.ageOfThePersonWhoOpensTheDoor }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="seccionId">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Sección
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.visitedEntity?.seccionId ?? row.seccionId }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="visitDate">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          Fecha
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{
+            row.visitedEntity?.visitDate ?? row.visitDate | date: 'yyyy/MM/dd'
+          }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Acciones
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          @if (row.deleted) {
+            <span
+              class="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700"
+              >Eliminado</span
+            >
+          } @else {
+            <button
+              matIconButton
+              matTooltip="Agregar visita"
+              (click)="addOneVisit(row)"
+            >
+              <mat-icon
+                class="text-emerald-600"
+                svgIcon="circle-plus"
+              />
+            </button>
+            <button
+              matIconButton
+              matTooltip="Eliminar"
+              (click)="deleteVisit(row)"
+            >
+              <mat-icon
+                class="text-red-500"
+                svgIcon="trash-2"
+              />
+            </button>
+          }
+        </td>
+      </ng-container>
+
+      <tr
+        mat-header-row
+        *matHeaderRowDef="displayedColumns"
+      ></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+      ></tr>
+    </table>
+
+    @if (!loading() && data().length === 0) {
+      <div class="p-8 text-center text-neutral-500">Sin visitas.</div>
+    }
+
+    <mat-paginator
+      [length]="resultsLength()"
+      [pageSize]="10"
+      [pageSizeOptions]="[10, 25, 50]"
+      showFirstLastButtons
+    />
+  </app-table-shell>
+</div>

@@ -1,0 +1,113 @@
+<div class="flex min-w-0 flex-auto flex-col">
+  <!-- Header -->
+  <div
+    class="bg-card flex flex-col border-b p-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-8 dark:bg-transparent"
+  >
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center font-medium">
+        <span class="text-primary whitespace-nowrap"
+          >Modelo para la transformación de Tabasco</span
+        >
+        <mat-icon
+          svgIcon="chevron-right"
+          class="icon-size-5 text-secondary mx-1"
+        />
+        <span class="text-primary">ODS</span>
+      </div>
+      <h2
+        class="mt-2 truncate text-3xl font-extrabold tracking-tight md:text-4xl"
+      >
+        ODS
+      </h2>
+    </div>
+  </div>
+
+  <div class="p-6 sm:p-10">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <!-- Detalle del seleccionado -->
+      <div
+        class="bg-card flex min-h-60 flex-col items-center justify-center gap-4 rounded-lg border p-6 shadow-sm"
+      >
+        @if (selected(); as sel) {
+          <div class="text-center text-2xl font-bold">
+            {{ sel.description }}
+          </div>
+          <button
+            mat-flat-button
+            color="primary"
+            (click)="goToGoals(sel.id)"
+          >
+            Ver Meta
+          </button>
+        } @else {
+          <mat-icon
+            svgIcon="flag"
+            class="icon-size-24 text-secondary"
+          />
+          <span class="text-secondary"
+            >Selecciona un objetivo para ver su detalle.</span
+          >
+        }
+      </div>
+
+      <!-- Tabla de ODS -->
+      <div class="bg-card rounded-lg border p-4 shadow-sm">
+        <h1 class="mb-4 text-center text-2xl font-bold">ODS</h1>
+        <table
+          mat-table
+          [dataSource]="dataSource"
+          class="w-full"
+        >
+          <ng-container matColumnDef="number">
+            <th
+              mat-header-cell
+              *matHeaderCellDef
+            >
+              No.
+            </th>
+            <td
+              mat-cell
+              *matCellDef="let element"
+              class="cursor-pointer"
+              (click)="select(element)"
+            >
+              <span
+                class="bg-primary text-on-primary flex h-12 w-12 items-center justify-center rounded-full text-xl font-bold"
+              >
+                {{ element.id }}
+              </span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <th
+              mat-header-cell
+              *matHeaderCellDef
+            >
+              Objetivo
+            </th>
+            <td
+              mat-cell
+              *matCellDef="let element"
+              class="cursor-pointer"
+              (click)="select(element)"
+            >
+              <span class="text-lg">{{ element.objective }}</span>
+            </td>
+          </ng-container>
+          <tr
+            mat-header-row
+            *matHeaderRowDef="columns"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: columns"
+          ></tr>
+        </table>
+        <mat-paginator
+          [pageSize]="5"
+          [pageSizeOptions]="[5, 10, 20]"
+        />
+      </div>
+    </div>
+  </div>
+</div>

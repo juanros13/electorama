@@ -1,0 +1,131 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Elecciones"
+    title="Resultado de actas"
+    [subtitle]="
+      dateUpdated()
+        ? 'Conteo por posición electoral · actualizado ' + dateUpdated()
+        : 'Conteo por posición electoral'
+    "
+  >
+    @if (loading()) {
+      <span
+        actions
+        class="text-sm text-neutral-400"
+        >Actualizando…</span
+      >
+    }
+  </app-page-header>
+
+  <!-- Filtros -->
+  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <mat-form-field>
+      <mat-label>Tipo de elección</mat-label>
+      <mat-select
+        [ngModel]="electionId()"
+        (ngModelChange)="electionId.set($event); onFilterChange()"
+      >
+        @for (scope of electionsScopes(); track scope.id) {
+          <mat-option [value]="scope.id.toString()">{{
+            scope.name
+          }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Ámbito</mat-label>
+      <mat-select
+        [ngModel]="typeId()"
+        (ngModelChange)="typeId.set($event); onFilterChange()"
+      >
+        <mat-option [value]="''">Todos</mat-option>
+        @for (type of electionsTypes(); track type.id) {
+          <mat-option [value]="type.id.toString()">{{ type.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Buscar posición</mat-label>
+      <input
+        matInput
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+      <mat-icon
+        matSuffix
+        svgIcon="search"
+      />
+    </mat-form-field>
+  </div>
+
+  <!-- Resultados por posición -->
+  <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    @for (section of filtered(); track section.electionPositionName) {
+      <div
+        class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+      >
+        <div class="flex items-start justify-between">
+          <div class="font-semibold">{{ section.electionPositionName }}</div>
+          <div class="text-right text-sm text-neutral-500">
+            {{ section.totalVotes | number }} votos
+          </div>
+        </div>
+
+        <!-- Avance de actas -->
+        <div
+          class="mt-2 flex items-center justify-between text-xs text-neutral-500"
+        >
+          <span
+            >Actas: {{ section.progressSheet | number }} /
+            {{ section.totalSheets | number }}</span
+          >
+          <span class="font-semibold">{{
+            ratio(section) | percent: '1.0-1'
+          }}</span>
+        </div>
+        <div
+          class="mt-1 h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+        >
+          <div
+            class="h-full rounded-full bg-primary-600"
+            [style.width.%]="
+              ratio(section) * 100 > 100 ? 100 : ratio(section) * 100
+            "
+          ></div>
+        </div>
+
+        <!-- Candidatos -->
+        <div class="mt-4 flex flex-col gap-2">
+          @for (
+            candidate of sortedCandidates(section);
+            track candidate.candidateId
+          ) {
+            <div
+              class="flex items-center justify-between border-t border-neutral-100 pt-2 text-sm dark:border-neutral-800"
+            >
+              <span class="truncate">
+                {{ candidate.names }} {{ candidate.lastNames }}
+                {{ candidate.surNames }}
+              </span>
+              <span class="font-semibold">{{
+                candidate.totalVotes | number
+              }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    } @empty {
+      <div
+        class="rounded-xl border border-dashed border-neutral-300 p-8 text-center text-neutral-500 lg:col-span-2 dark:border-neutral-700"
+      >
+        @if (loading()) {
+          Cargando resultados…
+        } @else {
+          Sin resultados para mostrar.
+        }
+      </div>
+    }
+  </div>
+</div>

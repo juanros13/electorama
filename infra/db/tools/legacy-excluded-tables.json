@@ -1,0 +1,110 @@
+{
+ "citizen_issues": [
+  "migracion_24oct"
+ ],
+ "elections": [
+  "fast_survey_copy1",
+  "polling_booths_"
+ ],
+ "elections_results": [
+  "election_result_copy1",
+  "polling_booths_election_associa"
+ ],
+ "elections_structure": [
+  "actualiza_rc"
+ ],
+ "followers": [
+  "coordinator_add_followers",
+  "meta_seccion",
+  "meta_vf",
+  "metacomites",
+  "promoters_legacy",
+  "survey_section_meta",
+  "tabasco_rgs",
+  "update_follower_mark",
+  "update_name_v2",
+  "usertest"
+ ],
+ "geography": [
+  "Tabla_secciones",
+  "actualizar_dlocal",
+  "buff_label_tabasco_1000",
+  "buff_label_tabasco_2",
+  "geo_colonias_2026_prebackup",
+  "geo_colonias_cdmx",
+  "geo_colonias_tab",
+  "geo_cp_2026_prebackup",
+  "geo_cp_sepomex",
+  "geo_distritos_federales_2026_09_prebackup",
+  "geo_distritos_federales_municipios",
+  "geo_distritos_locales_municipios",
+  "geo_label_distrito_federal_tab_2018",
+  "geo_label_distrito_local_tab_2018",
+  "geo_label_distritos_federales_tab_2021",
+  "geo_label_distritos_locales_tab_2021",
+  "geo_label_entidades",
+  "geo_label_entidades_tab",
+  "geo_label_localidades_nacional_corr",
+  "geo_label_municipios_tab",
+  "geo_label_secciones_nacional_2023",
+  "geo_label_secciones_tab_2018",
+  "geo_label_secciones_tab_2021",
+  "geo_label_tab",
+  "geo_label_text_municipios_nacional",
+  "geo_line_label_text_municipios_nacional",
+  "geo_localidades_juntos_2026_prebackup",
+  "geo_localidades_tab",
+  "geo_marco_tabasco",
+  "geo_municipios_2026_09_prebackup",
+  "geo_pol_localidades_tab",
+  "geo_secciones_2026_prebackup",
+  "geo_secciones_dist_2026_09_prebackup",
+  "geo_secciones_meta_2026_09_prebackup",
+  "geo_secciones_mun_2026_09_prebackup",
+  "lineas_label_pruebas",
+  "relacion_simbologia_secciones"
+ ],
+ "geography_staging": [
+  "cmp_secc",
+  "stg_ine_ln_27",
+  "stg_ine_mun",
+  "stg_ine_secc",
+  "stg_ine_secc_dl_27",
+  "stg_loc_ine",
+  "stg_morena_vote_2024_27"
+ ],
+ "structure": [
+  "migration_duplicate"
+ ],
+ "survey": [
+  "Hoja2",
+  "excel_usersurvey",
+  "section_geo",
+  "survey_eliminar",
+  "survey_user_folio_",
+  "survey_user_folio_copy1",
+  "survey_user_folio_copy2",
+  "survey_user_folio_copy3",
+  "survey_user_folio_prod",
+  "survey_user_folio_resp_bueno"
+ ],
+ "users": [
+  "limits_prod",
+  "meta_promotores",
+  "meta_secciones",
+  "seccion_municipio",
+  "submenus",
+  "tabasco_rgs",
+  "total_coordinadores",
+  "update_name_promoters",
+  "user_seccion_meta",
+  "users_federal_district",
+  "users_local_district",
+  "users_references",
+  "users_seccions_legacy",
+  "usuarios_cordinadores",
+  "usuarios_cordinadores_v2",
+  "usuarios_meta_tabasco",
+  "usuarios_secciones_diciembre2023"
+ ]
+}

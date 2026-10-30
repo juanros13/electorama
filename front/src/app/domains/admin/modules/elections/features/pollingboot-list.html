@@ -1,0 +1,188 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Elecciones"
+    title="Apertura de casillas"
+    subtitle="Estatus de instalación de casillas"
+  />
+
+  <!-- Totales -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Abiertas</div>
+      <div class="text-3xl font-bold text-emerald-600">
+        {{ count()?.totalOpen ?? 0 | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Cerradas / pendientes</div>
+      <div class="text-3xl font-bold text-red-600">
+        {{ count()?.totalClose ?? 0 | number }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <mat-form-field>
+      <mat-label>Municipio</mat-label>
+      <mat-select
+        [ngModel]="municipalityId()"
+        (ngModelChange)="
+          municipalityId.set($event === '0' ? '' : $event); search()
+        "
+      >
+        @for (m of municipalities(); track m.id) {
+          <mat-option [value]="m.id.toString()">{{ m.nomMun }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Estatus</mat-label>
+      <mat-select
+        [ngModel]="statusId()"
+        (ngModelChange)="statusId.set($event === '0' ? '' : $event); search()"
+      >
+        @for (s of statusTypes; track s.id) {
+          <mat-option [value]="s.id.toString()">{{ s.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Table -->
+  <app-table-shell [loading]="loading()">
+    <table
+      mat-table
+      matSort
+      [dataSource]="data()"
+      class="w-full"
+    >
+      <ng-container matColumnDef="municipality">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Municipio
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.municipality }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="federalDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Federal
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.federalDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="localDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Local
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.localDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="section">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          Sección
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.sectionNumber }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="pollingBooth">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Casilla
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.pollingBoothName }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Estatus
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          <span
+            class="rounded-full px-2 py-0.5 text-xs font-medium"
+            [class]="
+              (row.status || '').toLowerCase().includes('abierta')
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20'
+                : 'bg-red-100 text-red-700 dark:bg-red-500/20'
+            "
+          >
+            {{ row.status }}
+          </span>
+        </td>
+      </ng-container>
+
+      <tr
+        mat-header-row
+        *matHeaderRowDef="displayedColumns"
+      ></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+      ></tr>
+    </table>
+
+    @if (!loading() && data().length === 0) {
+      <div class="p-8 text-center text-neutral-500">
+        Sin casillas para mostrar.
+      </div>
+    }
+
+    <mat-paginator
+      [length]="resultsLength()"
+      [pageSize]="15"
+      [pageSizeOptions]="[15, 30, 100]"
+      showFirstLastButtons
+    />
+  </app-table-shell>
+</div>

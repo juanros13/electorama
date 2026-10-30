@@ -1,0 +1,47 @@
+# Entorno local de Electorama: Postgres+PostGIS, migraciones Flyway y Keycloak.
+#   cp .env.example .env   (en la raíz del repo)
+#   docker compose --env-file .env -f infra/docker-compose.yml up -d
+name: electorama
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-electorama}
+      POSTGRES_USER: ${DB_USERNAME:-electorama}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?define DB_PASSWORD en .env}
+    ports:
+      - "5433:5432" # 5433 para no chocar con un Postgres local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
+
+  flyway:
+    image: flyway/flyway:10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      -url=jdbc:postgresql://postgres:5432/${DB_DATABASE:-electorama}
+      -user=${DB_USERNAME:-electorama} -password=${DB_PASSWORD}
+      -locations=filesystem:/flyway/sql -defaultSchema=public -createSchemas=false
+      migrate
+    volumes:
+      - ./db/migrations:/flyway/sql:ro
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?define KEYCLOAK_ADMIN_PASSWORD en .env}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+
+volumes:
+  pgdata:

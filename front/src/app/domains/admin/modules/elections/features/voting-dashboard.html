@@ -1,0 +1,133 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Elecciones"
+    title="Tablero de votación"
+    subtitle="Marcaje de votantes (actualiza cada minuto)"
+  >
+    @if (loading()) {
+      <span
+        actions
+        class="text-sm text-neutral-400"
+        >Actualizando…</span
+      >
+    }
+  </app-page-header>
+
+  <!-- Totales -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Marcados</div>
+      <div class="text-3xl font-bold text-secondary-600">
+        {{ marked() | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Pendientes</div>
+      <div class="text-3xl font-bold text-amber-600">
+        {{ pending() | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">% de avance</div>
+      <div class="text-3xl font-bold text-emerald-600">
+        {{ percent() | percent: '1.0-1' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Por municipio -->
+  <div class="mt-8">
+    <div class="text-lg font-semibold">Por municipio</div>
+    <div
+      class="mt-3 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-900">
+          <tr>
+            <th class="px-4 py-2">Municipio</th>
+            <th class="px-4 py-2 text-right">Marcados</th>
+            <th class="px-4 py-2 text-right">Pendientes</th>
+            <th class="px-4 py-2 text-right">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of byMunicipality(); track row.municipalityId) {
+            <tr class="border-t border-neutral-100 dark:border-neutral-800">
+              <td class="px-4 py-2">{{ row.municipality }}</td>
+              <td class="px-4 py-2 text-right text-secondary-600">
+                {{ row.numVoters | number }}
+              </td>
+              <td class="px-4 py-2 text-right text-amber-600">
+                {{ row.numVotersPending | number }}
+              </td>
+              <td class="px-4 py-2 text-right font-semibold">
+                {{ ratio(row) | percent: '1.0-1' }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="px-4 py-6 text-center text-neutral-500"
+                colspan="4"
+              >
+                Sin datos.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Por distrito federal -->
+  <div class="mt-8">
+    <div class="text-lg font-semibold">Por distrito federal</div>
+    <div
+      class="mt-3 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-900">
+          <tr>
+            <th class="px-4 py-2">Distrito</th>
+            <th class="px-4 py-2 text-right">Marcados</th>
+            <th class="px-4 py-2 text-right">Pendientes</th>
+            <th class="px-4 py-2 text-right">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of byFederal(); track $index) {
+            <tr class="border-t border-neutral-100 dark:border-neutral-800">
+              <td class="px-4 py-2">
+                {{ row.federalDistrictName || row.federalDistrict }}
+              </td>
+              <td class="px-4 py-2 text-right text-secondary-600">
+                {{ row.numVoters | number }}
+              </td>
+              <td class="px-4 py-2 text-right text-amber-600">
+                {{ row.numVotersPending | number }}
+              </td>
+              <td class="px-4 py-2 text-right font-semibold">
+                {{ ratio(row) | percent: '1.0-1' }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="px-4 py-6 text-center text-neutral-500"
+                colspan="4"
+              >
+                Sin datos.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

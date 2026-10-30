@@ -1,0 +1,113 @@
+<div class="flex min-w-0 flex-auto flex-col">
+  <!-- Header -->
+  <div
+    class="bg-card flex flex-col border-b p-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-8 dark:bg-transparent"
+  >
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center font-medium">
+        <span class="whitespace-nowrap">Encuestas</span>
+        <mat-icon
+          svgIcon="chevron-right"
+          class="icon-size-5 text-secondary mx-1"
+        />
+        <span>Datos por encuesta</span>
+      </div>
+      <h2
+        class="mt-2 truncate text-3xl font-extrabold tracking-tight md:text-4xl"
+      >
+        Editar datos de la encuesta
+      </h2>
+    </div>
+    <div class="mt-6 sm:mt-0 sm:ml-4">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="back()"
+      >
+        <mat-icon
+          svgIcon="arrow-left"
+          class="mr-2"
+        />
+        Resumen de encuesta
+      </button>
+    </div>
+  </div>
+
+  @if (survey(); as s) {
+    <section class="my-5 flex flex-col gap-7 px-4">
+      <!-- Información -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">ID DEL DISPOSITIVO</span>
+          <span class="text-center font-medium">{{ s.deviceId }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">FOLIO</span>
+          <span class="font-medium">{{ s.surveyUserFolio.folio }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">ÚLTIMA ACTUALIZACIÓN</span>
+          <span class="font-medium">{{
+            s.updated | date: 'dd/MM/yyyy HH:mm'
+          }}</span>
+        </div>
+      </div>
+
+      <!-- Datos generales -->
+      <div class="bg-card rounded-md p-6 md:px-10">
+        <h1 class="mb-4 text-2xl font-bold md:text-3xl">
+          Datos generales de la encuesta
+        </h1>
+        <app-survey-general-edit [survey]="s" />
+      </div>
+
+      <!-- Familiares -->
+      <div class="bg-card rounded-md p-6 md:px-10">
+        <h1 class="mb-4 text-2xl font-bold md:text-3xl">
+          Datos de los familiares
+        </h1>
+        @if (familyMembers().length > 0 || canActiveFamilies()) {
+          <app-survey-families-edit
+            [survey]="s"
+            [members]="familyMembers()"
+            [activeFamilies]="canActiveFamilies()"
+            (deactivateFamilies)="onFamiliesDeactivated($event)"
+          />
+        } @else {
+          <div class="flex flex-col items-center gap-4 text-center">
+            <span class="text-xl font-bold"
+              >¡No hay más miembros de la familia!</span
+            >
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="activateFamilies()"
+            >
+              Agregar familiares
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Anexos -->
+      <div class="bg-card rounded-md p-6 md:px-10">
+        <h1 class="mb-4 text-2xl font-bold md:text-3xl">Datos de los anexos</h1>
+        @if (disableMembers().length > 0 || olderMembers().length > 0) {
+          <app-survey-annex-edit
+            [survey]="s"
+            [disableMembers]="disableMembers()"
+            [olderMembers]="olderMembers()"
+          />
+        } @else {
+          <div class="flex flex-col items-center text-center">
+            <span class="text-xl font-bold">
+              ¡No hay miembros de la familia discapacitados o varones de 60 a 64
+              años!
+            </span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+</div>

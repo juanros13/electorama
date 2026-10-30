@@ -1,0 +1,123 @@
+{
+  "realm": "electorama-realm",
+  "enabled": true,
+  "displayName": "Electorama",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN"
+      },
+      {
+        "name": "ADMIN_PROMOTION"
+      },
+      {
+        "name": "ADMIN_SURVEY"
+      },
+      {
+        "name": "CITIZEN_ISSUER"
+      },
+      {
+        "name": "CORDINATOR_MUNICIPAL"
+      },
+      {
+        "name": "CORDINATOR_MUNICIPAL_ALT"
+      },
+      {
+        "name": "CORDINATOR_ZONE"
+      },
+      {
+        "name": "CORDINATOR_ZONE_ALT"
+      },
+      {
+        "name": "FEDERAL_DISTRICT_TRACKER"
+      },
+      {
+        "name": "ISSUES_SUPEVISOR"
+      },
+      {
+        "name": "LOCAL_DISTRICT_TRACKER"
+      },
+      {
+        "name": "LOCAL_DISTRICT_TRACKER_VALIDATOR"
+      },
+      {
+        "name": "MUNICIPALITY_TRACKER"
+      },
+      {
+        "name": "MUNICIPALITY_TRACKER_VALIDATOR"
+      },
+      {
+        "name": "PROMOTER"
+      },
+      {
+        "name": "SAFE_HOUSE_OPERATOR"
+      },
+      {
+        "name": "SOLUTION_TRACKING"
+      },
+      {
+        "name": "SURVEY_MUNICIPALITY"
+      },
+      {
+        "name": "SURVEY_TRACKER"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "electorama-front",
+      "name": "Electorama front y app",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3873/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3873"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "electorama-back",
+      "name": "Electorama gateway",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "redirectUris": [
+        "http://localhost:8090/*"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@electorama.local",
+      "email": "admin@electorama.local",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Electorama",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "ADMIN",
+        "default-roles-electorama-realm"
+      ]
+    }
+  ]
+}

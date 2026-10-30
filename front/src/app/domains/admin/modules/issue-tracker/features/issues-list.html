@@ -1,0 +1,237 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Defensa del voto"
+    title="Tablero de incidencias"
+    subtitle="Incidencias reportadas en casillas"
+  />
+
+  <!-- Total + stats por subcategoría -->
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+    <div
+      class="flex flex-col items-center justify-center rounded-xl bg-red-700 p-6 text-center text-white"
+    >
+      <div class="text-sm font-semibold tracking-wide">TOTAL INCIDENCIAS</div>
+      <div class="text-5xl font-extrabold">{{ totalIncidents() | number }}</div>
+    </div>
+
+    <div
+      class="overflow-auto rounded-xl border border-neutral-200 lg:col-span-3 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-900">
+          <tr>
+            <th class="px-4 py-2">Subcategoría</th>
+            <th class="px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of stats(); track s.id) {
+            <tr class="border-t border-neutral-100 dark:border-neutral-800">
+              <td class="px-4 py-2">{{ s.subCategoryName }}</td>
+              <td class="px-4 py-2 text-right font-semibold">
+                {{ s.total | number }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="px-4 py-4 text-center text-neutral-500"
+                colspan="2"
+              >
+                Sin incidencias.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <mat-form-field>
+      <mat-label>Municipio</mat-label>
+      <mat-select
+        [ngModel]="municipalityId()"
+        (ngModelChange)="
+          municipalityId.set($event === '0' ? '' : $event); search()
+        "
+      >
+        @for (m of municipalities(); track m.id) {
+          <mat-option [value]="m.id.toString()">{{ m.nomMun }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Subcategoría</mat-label>
+      <mat-select
+        [ngModel]="categoryId()"
+        (ngModelChange)="categoryId.set($event === '0' ? '' : $event); search()"
+      >
+        @for (s of subcategories(); track s.id) {
+          <mat-option [value]="s.id.toString()">{{ s.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Table -->
+  <app-table-shell [loading]="loading()">
+    <table
+      mat-table
+      matSort
+      [dataSource]="data()"
+      class="w-full"
+    >
+      <ng-container matColumnDef="municipality">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Municipio
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.municipality }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="federalDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Federal
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.federalDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="localDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Local
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.localDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="sectionNumber">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          Sección
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.sectionNumber }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="pollingBoothsId">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Casilla
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.pollingBoothsId }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="nameSub">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Subcategoría
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          <span
+            class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/20"
+          >
+            {{ row.nameSub }}
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="created">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          Fecha
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.created | date: 'dd/MM/yyyy HH:mm' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="description">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Descripción
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="max-w-xs truncate"
+        >
+          {{ row.description }}
+        </td>
+      </ng-container>
+
+      <tr
+        mat-header-row
+        *matHeaderRowDef="displayedColumns"
+      ></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+      ></tr>
+    </table>
+
+    @if (!loading() && data().length === 0) {
+      <div class="p-8 text-center text-neutral-500">
+        Sin incidencias para mostrar.
+      </div>
+    }
+
+    <mat-paginator
+      [length]="resultsLength()"
+      [pageSize]="15"
+      [pageSizeOptions]="[15, 30, 100]"
+      showFirstLastButtons
+    />
+  </app-table-shell>
+</div>

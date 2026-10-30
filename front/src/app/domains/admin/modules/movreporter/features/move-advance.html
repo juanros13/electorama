@@ -1,0 +1,133 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Movilización"
+    title="Avance de movilización"
+    subtitle="Avance por movilizador"
+  />
+
+  <form (ngSubmit)="search()">
+    <mat-form-field class="w-full">
+      <mat-label>Buscar</mat-label>
+      <input
+        matInput
+        [ngModel]="query()"
+        name="query"
+        (ngModelChange)="query.set($event.toUpperCase())"
+      />
+      <button
+        matIconButton
+        matSuffix
+        type="submit"
+        aria-label="Buscar"
+      >
+        <mat-icon svgIcon="search" />
+      </button>
+    </mat-form-field>
+  </form>
+
+  <app-table-shell [loading]="loading()">
+    <table
+      mat-table
+      matSort
+      [dataSource]="data()"
+      class="w-full"
+    >
+      <ng-container matColumnDef="names">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Movilizador
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.names }} {{ row.lastName }} {{ row.surName }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="avance">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Avance
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          {{ row.followersCount | number }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="meta">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Meta
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          {{ row.followersGoal | number }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="percent">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          % Meta
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          <span
+            class="rounded px-2 py-0.5 text-xs font-bold text-white"
+            [class]="
+              progress(row) < 0.5
+                ? 'bg-red-500'
+                : progress(row) < 0.75
+                  ? 'bg-amber-500'
+                  : 'bg-emerald-500'
+            "
+          >
+            {{ progress(row) | percent }}
+          </span>
+        </td>
+      </ng-container>
+
+      <tr
+        mat-header-row
+        *matHeaderRowDef="displayedColumns"
+      ></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+      ></tr>
+    </table>
+
+    @if (!loading() && data().length === 0) {
+      <div class="p-8 text-center text-neutral-500">Sin datos.</div>
+    }
+
+    <mat-paginator
+      [length]="resultsLength()"
+      [pageSize]="15"
+      [pageSizeOptions]="[15, 30, 100]"
+      showFirstLastButtons
+    />
+  </app-table-shell>
+</div>

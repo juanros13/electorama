@@ -1,0 +1,544 @@
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    eyebrow="Tabasco · cómputos oficiales"
+    title="Histórico electoral"
+    subtitle="Cómo votó cada municipio y distrito. Resultados por casilla del INE y del IEPCT, cuadrados contra los cómputos publicados."
+  />
+
+  <!-- ──────────────────── pestañas: una elección / gráfica / comparar años / análisis ──────────────────── -->
+  <div
+    class="-mb-2 flex gap-1 border-b border-neutral-200 dark:border-neutral-800"
+    role="tablist"
+    aria-label="Vista del histórico"
+  >
+    @for (tab of tabs; track tab.view) {
+      <button
+        type="button"
+        role="tab"
+        class="-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors"
+        [class]="
+          view() === tab.view
+            ? 'border-primary-600 font-semibold text-primary-700 dark:text-primary-300'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+        "
+        [attr.aria-selected]="view() === tab.view"
+        (click)="setView(tab.view)"
+      >
+        <mat-icon [svgIcon]="tab.icon" class="icon-size-4" />
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  @if (view() === 'analysis') {
+  <!-- ──────────────────── análisis para dirección ──────────────────── -->
+  <app-electoral-analysis />
+  } @else {
+
+  <!-- ──────────────────── filtros ──────────────────── -->
+  <div class="flex flex-wrap items-end gap-4">
+    <label class="flex flex-col gap-1">
+      <span class="text-2xs tracking-wider text-neutral-500 uppercase">Cargo</span>
+      <select
+        class="min-w-56 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+        [value]="office() ?? ''"
+        (change)="setOffice($any($event.target).value)"
+      >
+        @for (o of offices(); track o.value) {
+          <option [value]="o.value" [selected]="o.value === office()">
+            {{ o.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (!compare()) {
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Año</span>
+        <select
+          class="rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm tabular-nums dark:border-neutral-800"
+          (change)="setYear(+$any($event.target).value)"
+        >
+          @for (y of years(); track y) {
+            <option [value]="y" [selected]="y === year()">{{ y }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    <div class="flex flex-col gap-1">
+      <span class="text-2xs tracking-wider text-neutral-500 uppercase">Ver por</span>
+      <div
+        class="inline-flex overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800"
+        role="group"
+        aria-label="Repartir el estado por"
+      >
+        @for (l of levelOptions; track l.value) {
+          <button
+            type="button"
+            class="px-3 py-2 text-sm transition-colors"
+            [class]="
+              level() === l.value
+                ? 'bg-primary-600 font-medium text-white'
+                : 'bg-card hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            "
+            [attr.aria-pressed]="level() === l.value"
+            (click)="setLevel(l.value)"
+          >
+            {{ l.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <span class="text-2xs tracking-wider text-neutral-500 uppercase">Agrupar por</span>
+      <div
+        class="inline-flex overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800"
+        role="group"
+        aria-label="Agrupar votos por"
+      >
+        @for (g of groupByOptions; track g[0]) {
+          <button
+            type="button"
+            class="px-3 py-2 text-sm transition-colors"
+            [class]="
+              groupBy() === g[0]
+                ? 'bg-primary-600 font-medium text-white'
+                : 'bg-card hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            "
+            [attr.aria-pressed]="groupBy() === g[0]"
+            [disabled]="compare() && g[0] === 'candidacy'"
+            [class.opacity-40]="compare() && g[0] === 'candidacy'"
+            [matTooltip]="
+              compare() && g[0] === 'candidacy'
+                ? 'Las coaliciones cambian entre años: se compara por bloque o partido'
+                : ''
+            "
+            (click)="setGroupBy(g[0])"
+          >
+            {{ g[1] }}
+          </button>
+        }
+      </div>
+    </div>
+
+
+    @if (compare() && focusOptions().length) {
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Seguir a</span>
+        <select
+          class="min-w-48 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+          (change)="setFocus($any($event.target).value)"
+        >
+          @for (g of focusOptions(); track g.code) {
+            <option [value]="g.code" [selected]="g.code === focus()">{{ g.label }}</option>
+          }
+        </select>
+      </label>
+    }
+  </div>
+
+  @if (!compare()) {
+  <!-- ──────────────────── el estado ──────────────────── -->
+  @let s = state();
+  @let winner = s ? group(s, s.winner) : null;
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+    <app-stat-card
+      label="Lista nominal"
+      [value]="s ? s.nominalList : null"
+      icon="users"
+      accent="secondary"
+    />
+    <app-stat-card
+      label="Votos emitidos"
+      [value]="s ? s.totalVotes : null"
+      icon="vote"
+      accent="neutral"
+    />
+    <app-stat-card
+      label="Participación"
+      [value]="s ? percent(s.turnout) : null"
+      icon="users-round"
+      accent="emerald"
+    />
+    <app-stat-card
+      [label]="winner ? 'Primer lugar · ' + percent(winner.pct) : 'Primer lugar'"
+      [value]="winner ? winner.label : null"
+      icon="trophy"
+      accent="primary"
+    />
+    <app-stat-card
+      label="Margen sobre el segundo"
+      [value]="s?.marginPp != null ? s!.marginPp!.toFixed(1) + ' pp' : null"
+      icon="chart-bar-stacked"
+      accent="amber"
+    />
+  </div>
+
+  <!-- leyenda -->
+  @if (legend().length) {
+    <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+      @for (g of legend(); track g.code) {
+        <span class="inline-flex items-center gap-1.5">
+          <span class="size-2.5 rounded-sm" [style.background]="color(g)"></span>
+          {{ g.label }}
+          <span class="text-neutral-400 tabular-nums">{{ g.pct | number: '1.1-1' }} %</span>
+        </span>
+      }
+    </div>
+  }
+
+  @if (view() === 'chart') {
+  <!-- ──────────────────── gráfica ──────────────────── -->
+  <app-chart-card
+    [heading]="'Resultado por ' + levelLabel().toLowerCase()"
+    subtitle="Cada barra es un territorio, repartida por grupo; ordenados por la fuerza del primer lugar"
+    [options]="resultChart()"
+    [emptyText]="loading() ? 'Cargando…' : 'Sin resultados para esta elección.'"
+  />
+  } @else {
+  @if (candidateHint(); as hint) {
+    <p class="-mt-2 flex items-start gap-2 text-xs text-neutral-500">
+      <mat-icon svgIcon="info" class="mt-px shrink-0 icon-size-3.5" />
+      {{ hint }}
+    </p>
+  }
+
+  <!-- ──────────────────── por territorio ──────────────────── -->
+  <app-table-shell
+    [loading]="loading()"
+    [empty]="!loading() && !sorted().length"
+    emptyText="No hay resultados cargados para esta elección."
+  >
+    <table class="w-full min-w-[60rem] text-sm">
+      <thead
+        class="sticky top-0 z-[1] border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+      >
+        <tr>
+          <th class="py-2.5 pr-3 pl-4 font-semibold" [attr.aria-sort]="ariaSort('name')">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('name')">
+              {{ levelLabel() }}
+              @if (sortIcon('name'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-3 py-2.5 text-right font-semibold" [attr.aria-sort]="ariaSort('totalVotes')">
+            <button type="button" class="inline-flex flex-row-reverse items-center gap-1 uppercase" (click)="sortBy('totalVotes')">
+              Votos
+              @if (sortIcon('totalVotes'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-3 py-2.5 text-right font-semibold" [attr.aria-sort]="ariaSort('turnout')">
+            <button
+              type="button"
+              class="inline-flex flex-row-reverse items-center gap-1 uppercase"
+              matTooltip="Votos de casillas ordinarias / su lista nominal"
+              (click)="sortBy('turnout')"
+            >
+              Particip.
+              @if (sortIcon('turnout'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-3 py-2.5 font-semibold">Resultado</th>
+          <th class="px-3 py-2.5 font-semibold" [attr.aria-sort]="ariaSort('winnerPct')">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('winnerPct')">
+              Primer lugar
+              @if (sortIcon('winnerPct'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-3 py-2.5 font-semibold">Segundo</th>
+          <th class="py-2.5 pr-4 pl-3 text-right font-semibold" [attr.aria-sort]="ariaSort('marginPp')">
+            <button
+              type="button"
+              class="inline-flex flex-row-reverse items-center gap-1 uppercase"
+              matTooltip="Puntos porcentuales entre el primero y el segundo"
+              (click)="sortBy('marginPp')"
+            >
+              Margen
+              @if (sortIcon('marginPp'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (m of sorted(); track m.code) {
+          @let isOpen = openMunicipality() === m.code;
+          <tr
+            class="cursor-pointer border-b border-neutral-100 transition-colors dark:border-neutral-900"
+            [class]="isOpen ? 'bg-primary-50 dark:bg-primary-500/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'"
+            [attr.aria-expanded]="isOpen"
+            (click)="toggle(m)"
+          >
+            <ng-container *ngTemplateOutlet="cells; context: { $implicit: m, lead: true, open: isOpen }" />
+          </tr>
+
+          @if (isOpen) {
+            <tr class="border-b border-neutral-200 dark:border-neutral-800">
+              <td colspan="7" class="bg-neutral-50 px-4 py-3 dark:bg-neutral-900/60">
+                @if (sectionsLoading()) {
+                  <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+                } @else if (sections(); as sec) {
+                  <div class="mb-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                    {{ groupBy() === 'candidacy' ? 'Candidaturas' : 'Resultado' }} en {{ sec.territory.name }}
+                  </div>
+                  <div class="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    @for (g of sec.territory.groups; track g.code; let i = $index) {
+                      <div
+                        class="flex items-center gap-3 rounded-lg border border-neutral-200 bg-card px-3 py-2 dark:border-neutral-800"
+                        [class.ring-2]="i === 0"
+                        [class.ring-primary-500]="i === 0"
+                      >
+                        <span class="size-3 shrink-0 rounded-sm" [style.background]="color(g)"></span>
+                        <div class="min-w-0 flex-1">
+                          <div class="text-sm font-medium break-words">{{ g.label }}</div>
+                          @if (g.candidate) {
+                            <div class="text-xs text-neutral-500 break-words">{{ g.candidate }}</div>
+                          }
+                        </div>
+                        <div class="text-right tabular-nums">
+                          <div class="text-sm font-semibold">{{ g.pct | number: '1.1-1' }} %</div>
+                          <div class="text-2xs text-neutral-500">{{ g.votes | number }}</div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <div class="mb-2 text-xs text-neutral-500">
+                    {{ sec.sections.length }} secciones de {{ sec.territory.name }}
+                  </div>
+                  <div class="max-h-[28rem] overflow-auto rounded-lg border border-neutral-200 bg-card dark:border-neutral-800">
+                    <table class="w-full text-xs">
+                      <thead class="sticky top-0 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase">
+                        <tr>
+                          <th class="py-2 pr-3 pl-4 font-semibold">Sección</th>
+                          <th class="px-3 py-2 text-right font-semibold">Votos</th>
+                          <th class="px-3 py-2 text-right font-semibold">Particip.</th>
+                          <th class="px-3 py-2 font-semibold">Resultado</th>
+                          <th class="px-3 py-2 font-semibold">Primer lugar</th>
+                          <th class="px-3 py-2 font-semibold">Segundo</th>
+                          <th class="py-2 pr-4 pl-3 text-right font-semibold">Margen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (x of sec.sections; track x.code) {
+                          <tr class="border-t border-neutral-100 dark:border-neutral-900">
+                            <ng-container *ngTemplateOutlet="cells; context: { $implicit: x, lead: false, open: false }" />
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+
+      @if (s && sorted().length) {
+        <tfoot class="sticky bottom-0 border-t-2 border-neutral-300 bg-neutral-50 font-semibold dark:border-neutral-700 dark:bg-neutral-900">
+          <tr>
+            <ng-container *ngTemplateOutlet="cells; context: { $implicit: s, lead: false, open: false }" />
+          </tr>
+        </tfoot>
+      }
+    </table>
+  </app-table-shell>
+  }
+
+  } @else {
+    <!-- ──────────────────── comparar años ──────────────────── -->
+    <app-chart-card
+      [heading]="focusLabel() + ' · ' + officeLabel(office())"
+      subtitle="% de la votación total en cada elección. Toca un renglón de la tabla para dibujarlo junto al estado."
+      [options]="trendChart()"
+      [emptyText]="trendLoading() ? 'Cargando…' : 'Sin datos para comparar.'"
+    />
+
+    <app-table-shell
+      [loading]="trendLoading()"
+      [empty]="!trendLoading() && !trendRows().length"
+      emptyText="No hay resultados para comparar."
+    >
+      <table class="w-full min-w-[52rem] text-sm">
+        <thead
+          class="sticky top-0 z-[1] border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+        >
+          <tr>
+            <th class="py-2.5 pr-3 pl-4 font-semibold">
+              <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortTrendBy('name')">
+                {{ levelLabel() }}
+                @if (trendSortIcon('name'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+              </button>
+            </th>
+            @for (y of trendYears(); track y; let first = $first; let last = $last) {
+              <th class="px-3 py-2.5 text-right font-semibold">
+                @if (first || last) {
+                  <button
+                    type="button"
+                    class="inline-flex flex-row-reverse items-center gap-1 uppercase"
+                    (click)="sortTrendBy(first ? 'first' : 'last')"
+                  >
+                    {{ y }}
+                    @if (trendSortIcon(first ? 'first' : 'last'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                  </button>
+                } @else {
+                  {{ y }}
+                }
+              </th>
+            }
+            <th class="px-3 py-2.5 text-right font-semibold">
+              <button
+                type="button"
+                class="inline-flex flex-row-reverse items-center gap-1 uppercase"
+                matTooltip="Puntos que ganó o perdió entre la primera y la última elección"
+                (click)="sortTrendBy('delta')"
+              >
+                Cambio
+                @if (trendSortIcon('delta'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+              </button>
+            </th>
+            <th class="py-2.5 pr-4 pl-3 font-semibold" matTooltip="Quién ganó en cada elección (por candidatura)">
+              Ganador por año
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of trendRows(); track row.code) {
+            <ng-container *ngTemplateOutlet="trendRow; context: { $implicit: row, total: false }" />
+          }
+        </tbody>
+        @if (trend(); as t) {
+          <tfoot class="sticky bottom-0 border-t-2 border-neutral-300 bg-neutral-50 font-semibold dark:border-neutral-700 dark:bg-neutral-900">
+            <ng-container *ngTemplateOutlet="trendRow; context: { $implicit: t.state, total: true }" />
+          </tfoot>
+        }
+      </table>
+    </app-table-shell>
+
+    @if (trend(); as t) {
+      <p class="text-xs text-neutral-500">
+        Fuentes:
+        @for (e of t.elections; track e.id; let last = $last) {
+          {{ e.year }} {{ e.publisher }}
+          (<a class="underline" [href]="e.sourceUrl" target="_blank" rel="noopener">{{ e.sourceFile }}</a>, corte {{ e.cutLabel }}){{ last ? '.' : ';' }}
+        }
+        Por bloque, cada año suma a los partidos de ese bloque aunque hayan ido
+        separados: 2018 MORENA + PT + PES; 2021 y 2024 MORENA + PT + PVEM.
+      </p>
+    }
+  }
+
+  @if (!compare() && report(); as r) {
+    <p class="text-xs text-neutral-500">
+      Fuente: {{ r.election.publisher }},
+      <a class="underline" [href]="r.election.sourceUrl" target="_blank" rel="noopener">{{ r.election.sourceFile }}</a>
+      · corte {{ r.election.cutLabel }}.
+      La participación sólo cuenta casillas ordinarias. El total estatal incluye
+      el voto anticipado, en prisión y en el extranjero, que no pertenece a
+      ningún territorio. Los distritos son los de ese año; su nombre lleva la
+      cabecera (el municipio con más lista nominal). Con "Partido" sólo cuentan
+      los votos de un emblema; los
+      de combinación se ven en "Candidatura".
+    </p>
+  }
+}
+</div>
+
+<!-- las celdas de un territorio: municipio, sección o el total del estado -->
+<ng-template #cells let-t let-lead="lead" let-open="open">
+  @let first = group(t, t.winner);
+  @let second = group(t, t.runnerUp);
+  <td class="py-2 pr-3 pl-4 font-medium whitespace-nowrap">
+    @if (lead) {
+      <mat-icon
+        [svgIcon]="open ? 'chevron-down' : 'chevron-right'"
+        class="mr-1 align-middle text-neutral-400 icon-size-4"
+      />
+    }
+    {{ t.name }}
+  </td>
+  <td class="px-3 py-2 text-right tabular-nums">{{ t.totalVotes | number }}</td>
+  <td class="px-3 py-2 text-right tabular-nums">{{ percent(t.turnout) }}</td>
+  <td class="px-3 py-2">
+    <div
+      class="flex h-2.5 w-40 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+      [matTooltip]="barTooltip(t.groups)"
+    >
+      @for (b of bar(t.groups); track $index) {
+        <div class="h-full" [style.width.%]="b.pct" [style.background]="b.color"></div>
+      }
+    </div>
+  </td>
+  <td class="px-3 py-2 whitespace-nowrap">
+    @if (first) {
+      <span class="inline-flex items-center gap-1.5">
+        <span class="size-2.5 shrink-0 rounded-sm" [style.background]="color(first)"></span>
+        <span class="flex min-w-0 flex-col">
+          <span class="max-w-44 truncate" [matTooltip]="first.label">{{ first.label }}</span>
+          @if (first.candidate) {
+            <span class="max-w-44 truncate text-2xs text-neutral-500" [matTooltip]="first.candidate">{{ first.candidate }}</span>
+          }
+        </span>
+        <span class="text-neutral-500 tabular-nums">{{ first.pct | number: '1.1-1' }} %</span>
+      </span>
+    } @else { — }
+  </td>
+  <td class="px-3 py-2 whitespace-nowrap text-neutral-600 dark:text-neutral-400">
+    @if (second) {
+      <span class="inline-flex items-center gap-1.5">
+        <span class="size-2.5 shrink-0 rounded-sm" [style.background]="color(second)"></span>
+        <span class="flex min-w-0 flex-col">
+          <span class="max-w-36 truncate" [matTooltip]="second.label">{{ second.label }}</span>
+          @if (second.candidate) {
+            <span class="max-w-36 truncate text-2xs text-neutral-500" [matTooltip]="second.candidate">{{ second.candidate }}</span>
+          }
+        </span>
+        <span class="tabular-nums">{{ second.pct | number: '1.1-1' }} %</span>
+      </span>
+    } @else { — }
+  </td>
+  <td class="py-2 pr-4 pl-3 text-right tabular-nums">
+    {{ t.marginPp === null ? '—' : (t.marginPp | number: '1.1-1') + ' pp' }}
+  </td>
+</ng-template>
+
+<!-- una fila de la comparación: el % del foco por año, el cambio y quién ganó -->
+<ng-template #trendRow let-row let-isTotal="total">
+  @let d = delta(row);
+  @let chosen = !isTotal && trendMunicipality() === row.code;
+  <tr
+    class="border-b border-neutral-100 transition-colors last:border-0 dark:border-neutral-900"
+    [class]="
+      isTotal
+        ? ''
+        : chosen
+          ? 'cursor-pointer bg-secondary-50 dark:bg-secondary-500/15'
+          : 'cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900'
+    "
+    (click)="isTotal ? null : showInTrend(row.code)"
+  >
+    <td class="py-2 pr-3 pl-4 font-medium whitespace-nowrap">{{ row.name }}</td>
+    @for (p of row.points; track p.year) {
+      <td class="px-3 py-2 text-right tabular-nums">{{ focusPct(p) | number: '1.1-1' }} %</td>
+    }
+    <td class="px-3 py-2 text-right font-semibold tabular-nums" [class]="deltaClass(d)">
+      @if (d !== null) {
+        {{ d > 0 ? '+' : '' }}{{ d | number: '1.1-1' }} pp
+      } @else { — }
+    </td>
+    <td class="py-2 pr-4 pl-3">
+      <div class="flex flex-wrap gap-1.5">
+        @for (p of row.points; track p.year) {
+          <span
+            class="inline-flex items-center gap-1 rounded-full border border-neutral-200 px-1.5 py-0.5 text-2xs dark:border-neutral-700"
+            [matTooltip]="p.winner ? p.year + ': ' + p.winner.label + ' · ' + (p.winner.pct | number: '1.1-1') + ' %' : ''"
+          >
+            <span class="size-2 rounded-full" [style.background]="color(p.winner)"></span>
+            <span class="tabular-nums">{{ p.year }}</span>
+          </span>
+        }
+      </div>
+    </td>
+  </tr>
+</ng-template>

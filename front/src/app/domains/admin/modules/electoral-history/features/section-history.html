@@ -1,0 +1,155 @@
+@let h = history();
+@let top = headline();
+
+<div class="flex flex-col gap-6 p-6 md:p-8">
+  <app-page-header
+    eyebrow="Histórico electoral"
+    [title]="section() ? 'Sección ' + section() : 'Mi sección'"
+    subtitle="Cómo votó tu sección en 2018, 2021 y 2024, cargo por cargo. Resultados oficiales del INE y el IEPCT."
+  />
+
+  @if (!optionsLoading() && !options().length) {
+    <p class="text-sm text-neutral-500">No ocupas ningún puesto con sección en la campaña activa.</p>
+  }
+
+  @if (options().length) {
+    <!-- qué sección y cómo agrupar -->
+    <div class="flex flex-wrap items-end gap-4">
+      @if (options().length > 1) {
+        <label class="flex min-w-56 flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase">Sección</span>
+          <select
+            class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+            [value]="section()"
+            (change)="selectSection($any($event.target).value)"
+          >
+            @for (o of options(); track o.section) {
+              <option [value]="o.section">Sección {{ o.section }} · {{ o.hint }}</option>
+            }
+          </select>
+        </label>
+      }
+      <div class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Ver por</span>
+        <div class="flex rounded-full border border-neutral-200 p-0.5 text-sm dark:border-neutral-800">
+          @for (g of [
+            { value: 'bloc', label: 'Bloque' },
+            { value: 'candidacy', label: 'Candidatura' },
+            { value: 'party', label: 'Partido' }
+          ]; track g.value) {
+            <button
+              type="button"
+              class="w-28 rounded-full py-1 text-center"
+              [class]="groupBy() === g.value ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500'"
+              (click)="groupBy.set($any(g.value))"
+            >
+              {{ g.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+    }
+    @if (error()) {
+      <p class="text-sm text-amber-700 dark:text-amber-400">{{ error() }}</p>
+    }
+
+    @if (h && top) {
+      <!-- la elección más reciente, de un vistazo -->
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <app-stat-card label="Lista nominal" [value]="top.nominalList" accent="secondary" icon="users" />
+        <app-stat-card
+          [label]="'Participación ' + top.year"
+          [value]="top.turnout !== null ? top.turnout + '%' : null"
+          accent="primary"
+          icon="vote"
+        />
+        <app-stat-card
+          [label]="'Ganó ' + officeLabel[top.office] + ' ' + top.year"
+          [value]="winnerOf(top)?.label ?? null"
+          accent="emerald"
+          icon="trophy"
+        />
+        <app-stat-card
+          label="Ventaja sobre el segundo"
+          [value]="top.marginPct !== null ? top.marginPct + ' pts' : null"
+          accent="amber"
+          icon="trending-up"
+        />
+      </div>
+
+      @if (trendChart(); as chart) {
+        <app-chart-card
+          heading="MORENA y aliados en tu sección"
+          subtitle="Porcentaje de la votación total, por cargo"
+          [options]="chart"
+        />
+      }
+
+      <!-- cada año, de lo nacional a lo local -->
+      @for (y of years(); track y.year) {
+        <section class="flex flex-col gap-3">
+          <div class="flex items-baseline gap-3">
+            <h2 class="font-display text-3xl font-bold tabular-nums">{{ y.year }}</h2>
+            <span class="text-xs text-neutral-500">{{ y.elections.length }} {{ y.elections.length === 1 ? 'elección' : 'elecciones' }}</span>
+          </div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            @for (e of y.elections; track e.office) {
+              <article class="anim-rise flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+                <header class="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="font-semibold">{{ officeLabel[e.office] }}</h3>
+                    <p class="text-2xs text-neutral-500">{{ e.electionDate | date: 'd MMM yyyy' }}</p>
+                  </div>
+                  @if (winnerOf(e); as w) {
+                    <span
+                      class="max-w-40 truncate rounded-full px-2 py-0.5 text-2xs font-semibold text-white"
+                      [style.background]="w.color || '#6b7280'"
+                      [title]="w.label"
+                      >{{ w.label }}</span
+                    >
+                  }
+                </header>
+
+                <!-- la votación total repartida: una barra, un color por grupo -->
+                <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                  @for (g of e.groups; track g.code) {
+                    <div
+                      class="h-full"
+                      [style.width.%]="g.pct"
+                      [style.background]="g.color || '#9ca3af'"
+                      [title]="g.label + ' ' + g.pct + '%'"
+                    ></div>
+                  }
+                </div>
+
+                <ul class="flex flex-col gap-1.5 text-sm">
+                  @for (g of e.groups.slice(0, 3); track g.code) {
+                    <li class="flex items-center gap-2">
+                      <span class="size-2.5 shrink-0 rounded-sm" [style.background]="g.color || '#9ca3af'"></span>
+                      <span class="min-w-0 flex-1 truncate" [title]="g.label">{{ g.label }}</span>
+                      <span class="text-xs text-neutral-500 tabular-nums">{{ g.votes | number: '1.0-0' }}</span>
+                      <span class="w-14 text-right font-semibold tabular-nums">{{ g.pct | number: '1.1-1' }}%</span>
+                    </li>
+                  }
+                </ul>
+
+                <footer class="mt-auto flex flex-wrap gap-x-4 gap-y-1 border-t border-neutral-100 pt-2 text-2xs text-neutral-500 dark:border-neutral-900">
+                  <span>Participación <b class="tabular-nums">{{ e.turnout !== null ? (e.turnout | number: '1.1-1') + '%' : '—' }}</b></span>
+                  <span>Votos <b class="tabular-nums">{{ e.totalVotes | number: '1.0-0' }}</b></span>
+                  <span>LN <b class="tabular-nums">{{ e.nominalList | number: '1.0-0' }}</b></span>
+                  @if (e.marginPct !== null) {
+                    <span>Ventaja <b class="tabular-nums">{{ e.marginPct | number: '1.1-1' }} pts</b></span>
+                  }
+                </footer>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
+  }
+</div>

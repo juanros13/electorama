@@ -1,0 +1,541 @@
+<div class="flex flex-auto flex-col gap-6 p-6 md:p-10">
+  <app-page-header
+    eyebrow="Atención ciudadana"
+    [title]="editId() ? 'Actualizar incidencia' : 'Nueva incidencia'"
+    subtitle="Detalle de incidencias ciudadanas"
+  >
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="cancel()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar al listado
+    </button>
+  </app-page-header>
+
+  <form
+    [formGroup]="form"
+    class="flex max-w-5xl flex-col gap-6"
+  >
+    <!-- Resumen folio (edición) -->
+    @if (editId() && editDao(); as dao) {
+      <app-section-card heading="Resumen de la incidencia">
+        <div class="grid gap-2">
+          <p><span class="font-bold">FOLIO:</span> {{ dao.issue.invoice }}</p>
+          <p>
+            <span class="font-bold">FECHA:</span>
+            {{ dao.issue.registrationDate | date: 'yyyy/MM/dd' }}
+          </p>
+          <p>
+            <span class="font-bold">MUNICIPIO:</span>
+            {{ dao.issue.municipalityName }}
+          </p>
+          <p>
+            <span class="font-bold">LOCALIDAD:</span>
+            {{
+              dao.issue.localityId === 0
+                ? dao.issue.localityOther
+                : dao.issue.localityName
+            }}
+          </p>
+          @if (dao.name) {
+            <p>
+              <span class="font-bold">BENEFICIARIO:</span> {{ dao.name }}
+              {{ dao.lastName }} {{ dao.surName }}
+            </p>
+          }
+          @if (dao.pathFile) {
+            <p class="flex items-center gap-2">
+              <span class="font-bold">COMPROBANTE:</span>
+              <button
+                matButton="tonal"
+                type="button"
+                (click)="downloadExistingFile(dao.pathFile)"
+              >
+                <mat-icon svgIcon="download" />
+                Descargar
+              </button>
+            </p>
+          }
+        </div>
+      </app-section-card>
+    }
+
+    <!-- Datos personales -->
+    <app-section-card heading="Datos personales">
+      <div
+        formGroupName="step1"
+        class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+      >
+        <mat-form-field class="md:col-span-2">
+          <mat-label>Nombre completo</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="user"
+          />
+          <input
+            matInput
+            formControlName="fullName"
+            appUppercase
+          />
+          @if (step1.get('fullName')!.hasError('required')) {
+            <mat-error>Este campo es requerido.</mat-error>
+          }
+          @if (
+            step1.get('fullName')!.hasError('minlength') ||
+            step1.get('fullName')!.hasError('maxlength')
+          ) {
+            <mat-error>Nombre inválido.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Teléfono celular</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="smartphone"
+          />
+          <input
+            matInput
+            formControlName="cellPhoneNumber"
+            inputmode="tel"
+            maxlength="10"
+          />
+          @if (step1.get('cellPhoneNumber')!.hasError('required')) {
+            <mat-error>Este campo es requerido.</mat-error>
+          }
+        </mat-form-field>
+
+        @if (!step1.get('municipality')!.disabled) {
+          <mat-form-field>
+            <mat-label>Municipio</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="map"
+            />
+            <mat-select
+              formControlName="municipality"
+              [compareWith]="compareById"
+              (selectionChange)="onMunicipalityChange($event.value)"
+            >
+              @for (m of municipalities(); track m.id) {
+                <mat-option [value]="m">{{ m.nomMun }}</mat-option>
+              }
+            </mat-select>
+            @if (step1.get('municipality')!.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+          </mat-form-field>
+        }
+
+        @if (step1.get('municipality')!.valid) {
+          <mat-form-field>
+            <mat-label>Localidad</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="map-pin"
+            />
+            <mat-select
+              formControlName="locality"
+              [compareWith]="compareById"
+              (selectionChange)="onLocalityChange($event.value)"
+            >
+              <div class="px-3 py-2">
+                <input
+                  class="w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  formControlName="searchText"
+                  placeholder="Buscar localidad"
+                  (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                  (input)="filterLocalities()"
+                />
+              </div>
+              @for (l of filteredLocalities(); track l.id) {
+                <mat-option
+                  [value]="l"
+                  [disabled]="l.localidad === 'Sin Resultados'"
+                >
+                  {{ l.localidad }}
+                </mat-option>
+              }
+            </mat-select>
+            @if (step1.get('locality')!.value) {
+              <button
+                matIconButton
+                matSuffix
+                type="button"
+                (click)="clearLocality()"
+              >
+                <mat-icon
+                  class="text-red-500"
+                  svgIcon="trash-2"
+                />
+              </button>
+            }
+          </mat-form-field>
+        }
+
+        @if (step1.get('locality')!.value?.localidad === 'OTRA') {
+          <mat-form-field>
+            <mat-label>Especifica la localidad</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="map-pin"
+            />
+            <input
+              matInput
+              formControlName="localityOther"
+              appUppercase
+            />
+            @if (step1.get('localityOther')!.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+          </mat-form-field>
+        }
+      </div>
+    </app-section-card>
+
+    <!-- Datos de la incidencia (FormArray) -->
+    <app-section-card heading="Datos de la incidencia">
+      <div
+        formArrayName="step2"
+        class="flex flex-col gap-6"
+      >
+        @for (detail of details; track detail; let i = $index) {
+          <div
+            class="flex gap-4"
+            [class.border-t]="i > 0"
+            [class.border-neutral-200]="i > 0"
+            [class.pt-6]="i > 0"
+            [class.dark:border-neutral-800]="i > 0"
+            [formGroup]="detail"
+          >
+            @if (!disabledFormArray()) {
+              <button
+                matIconButton
+                type="button"
+                matTooltip="Eliminar incidencia"
+                [class.invisible]="i === 0"
+                (click)="removeDetail(i)"
+              >
+                <mat-icon
+                  class="text-red-500"
+                  svgIcon="trash-2"
+                />
+              </button>
+            }
+
+            <div
+              class="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <div class="md:col-span-2 lg:col-span-3">
+                <mat-checkbox
+                  color="warn"
+                  formControlName="urgent"
+                  >Establecer como ¡URGENTE!</mat-checkbox
+                >
+              </div>
+
+              <mat-form-field>
+                <mat-label>Tipo de incidencia</mat-label>
+                <mat-icon
+                  matPrefix
+                  svgIcon="wrench"
+                />
+                <mat-select
+                  formControlName="issueType"
+                  [compareWith]="compareById"
+                >
+                  @for (t of types(); track t.id) {
+                    <mat-option [value]="t">{{ t.name }}</mat-option>
+                  }
+                </mat-select>
+                @if (detail.get('issueType')!.hasError('required')) {
+                  <mat-error>Requerido.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field>
+                <mat-label>Estatus</mat-label>
+                <mat-icon
+                  matPrefix
+                  svgIcon="puzzle"
+                />
+                <mat-select
+                  formControlName="issueStatus"
+                  [compareWith]="compareById"
+                >
+                  @for (s of statuses(); track s.id) {
+                    <mat-option
+                      [value]="s"
+                      [disabled]="s.name === 'ATENDIDO'"
+                      >{{ s.name }}</mat-option
+                    >
+                  }
+                </mat-select>
+                @if (detail.get('issueStatus')!.hasError('required')) {
+                  <mat-error>Requerido.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field>
+                <mat-label>Categoría</mat-label>
+                <mat-icon
+                  matPrefix
+                  svgIcon="file-text"
+                />
+                <mat-select
+                  formControlName="issueCategory"
+                  [compareWith]="compareById"
+                  (selectionChange)="onCategoryChange($event.value, i)"
+                >
+                  @for (c of categories(); track c.id) {
+                    <mat-option [value]="c">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+                @if (detail.get('issueCategory')!.hasError('required')) {
+                  <mat-error>Requerido.</mat-error>
+                }
+              </mat-form-field>
+
+              <!-- Recurso (condicional) -->
+              @if (detail.get('issueSolutionResourceTmp')!.enabled) {
+                <mat-form-field>
+                  <mat-label>Recurso</mat-label>
+                  <mat-icon
+                    matPrefix
+                    svgIcon="store"
+                  />
+                  <mat-select
+                    formControlName="issueSolutionResourceTmp"
+                    [compareWith]="compareById"
+                  >
+                    <div class="px-3 py-2">
+                      <input
+                        class="w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                        formControlName="searchResource"
+                        placeholder="Buscar recurso"
+                        (click)="$event.stopPropagation()"
+                        (keydown)="$event.stopPropagation()"
+                        (input)="filterResources(i)"
+                      />
+                    </div>
+                    @for (r of filteredResources()[i]; track r.id) {
+                      <mat-option
+                        [value]="r"
+                        [disabled]="r.name === 'Sin Resultados'"
+                        >{{ r.name }}</mat-option
+                      >
+                    }
+                  </mat-select>
+                  @if (enableAddItems) {
+                    <button
+                      matIconButton
+                      matSuffix
+                      type="button"
+                      (click)="openResourceDialog($event, i)"
+                    >
+                      <mat-icon
+                        class="text-secondary-600"
+                        svgIcon="circle-plus"
+                      />
+                    </button>
+                  }
+                  @if (
+                    detail.get('issueSolutionResourceTmp')!.hasError('required')
+                  ) {
+                    <mat-error>Requerido.</mat-error>
+                  }
+                </mat-form-field>
+              }
+
+              <!-- Comprobante (condicional) -->
+              @if (detail.get('file')!.enabled) {
+                <mat-form-field>
+                  <mat-label>Comprobante</mat-label>
+                  <mat-icon
+                    matPrefix
+                    svgIcon="folder"
+                  />
+                  <input
+                    matInput
+                    formControlName="file"
+                    readonly
+                    class="cursor-pointer"
+                    (click)="openFileDialog($event, i)"
+                  />
+                  <div
+                    matSuffix
+                    class="flex"
+                  >
+                    <button
+                      matIconButton
+                      type="button"
+                      (click)="openFileDialog($event, i)"
+                    >
+                      <mat-icon svgIcon="upload" />
+                    </button>
+                    <button
+                      matIconButton
+                      type="button"
+                      (click)="removeFile(i)"
+                    >
+                      <mat-icon
+                        class="text-red-500"
+                        svgIcon="trash-2"
+                      />
+                    </button>
+                  </div>
+                  <mat-hint>Imagen (.png/.jpg) o documento (.pdf)</mat-hint>
+                </mat-form-field>
+              }
+
+              <!-- Previsualización -->
+              @if (filesPreview()[i]; as preview) {
+                <div class="self-center">
+                  @if (preview.type === 'img') {
+                    <img
+                      [src]="preview.file"
+                      class="h-28 w-auto rounded-md border border-neutral-200"
+                    />
+                  } @else {
+                    <div class="flex items-center gap-2">
+                      <mat-icon
+                        class="icon-size-10 text-red-500"
+                        svgIcon="file"
+                      />
+                      <span class="truncate">{{
+                        detail.get('file')!.value
+                      }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- Beneficiario (condicional) -->
+              @if (detail.get('name')!.enabled) {
+                <div
+                  class="grid grid-cols-1 gap-4 md:col-span-2 md:grid-cols-2 lg:col-span-3 lg:grid-cols-4"
+                >
+                  <mat-form-field>
+                    <mat-label>Nombre(s)</mat-label>
+                    <input
+                      matInput
+                      formControlName="name"
+                      appUppercase
+                    />
+                    @if (detail.get('name')!.hasError('required')) {
+                      <mat-error>Requerido.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Apellido paterno</mat-label>
+                    <input
+                      matInput
+                      formControlName="lastName"
+                      appUppercase
+                    />
+                    @if (detail.get('lastName')!.hasError('required')) {
+                      <mat-error>Requerido.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Apellido materno</mat-label>
+                    <input
+                      matInput
+                      formControlName="surName"
+                      appUppercase
+                    />
+                    @if (detail.get('surName')!.hasError('required')) {
+                      <mat-error>Requerido.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>CURP</mat-label>
+                    <input
+                      matInput
+                      formControlName="curp"
+                      appUppercase
+                      maxlength="18"
+                    />
+                    @if (detail.get('curp')!.hasError('pattern')) {
+                      <mat-error>CURP inválido.</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+
+              <mat-form-field class="md:col-span-2 lg:col-span-3">
+                <mat-label>Observaciones</mat-label>
+                <mat-icon
+                  matPrefix
+                  svgIcon="square-pen"
+                />
+                <textarea
+                  matInput
+                  formControlName="comments"
+                  rows="3"
+                  class="resize-none"
+                  appUppercase
+                ></textarea>
+                @if (detail.get('comments')!.hasError('required')) {
+                  <mat-error>Requerido.</mat-error>
+                }
+              </mat-form-field>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (!disabledFormArray()) {
+        <button
+          class="mt-6"
+          matButton="tonal"
+          type="button"
+          [disabled]="step2.invalid"
+          (click)="addDetail()"
+        >
+          <mat-icon svgIcon="plus" />
+          Añadir incidencia
+        </button>
+      }
+    </app-section-card>
+
+    <!-- Acciones -->
+    <div class="flex justify-end gap-3">
+      <button
+        matButton
+        type="button"
+        (click)="cancel()"
+      >
+        Cancelar
+      </button>
+      <button
+        matButton="filled"
+        type="button"
+        [disabled]="form.invalid || saving()"
+        (click)="save()"
+      >
+        {{ saving() ? 'Guardando…' : editId() ? 'Actualizar' : 'Finalizar' }}
+      </button>
+    </div>
+  </form>
+
+  <!-- Inputs ocultos para carga de archivos -->
+  <input
+    #imgInput
+    type="file"
+    class="hidden"
+    accept="image/*"
+    (change)="onImageSelected($event)"
+  />
+  <input
+    #pdfInput
+    type="file"
+    class="hidden"
+    accept="application/pdf"
+    (change)="onPdfSelected($event)"
+  />
+</div>

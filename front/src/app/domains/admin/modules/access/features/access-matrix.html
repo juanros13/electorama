@@ -1,0 +1,329 @@
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    eyebrow="Acceso"
+    title="Menú y roles"
+    subtitle="Qué entradas existen, a dónde llevan y quién las ve. Se guarda en msvc-users, así que lo ve todo el equipo."
+  >
+    <button
+      actions
+      matButton="filled"
+      (click)="nueva()"
+    >
+      <mat-icon svgIcon="plus" />
+      Nueva entrada
+    </button>
+  </app-page-header>
+
+  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <app-stat-card
+      label="Entradas en el menú"
+      [value]="rows().length"
+      icon="list"
+      accent="secondary"
+    />
+    <app-stat-card
+      label="Con ruta viva"
+      [value]="alive()"
+      icon="circle-check"
+      accent="emerald"
+    />
+    <app-stat-card
+      label="Con enlace roto"
+      [value]="broken()"
+      icon="unlink"
+      [accent]="broken() ? 'amber' : 'neutral'"
+    />
+    <app-stat-card
+      label="Sin ningún rol"
+      [value]="orphan()"
+      icon="circle-slash"
+      [accent]="orphan() ? 'amber' : 'neutral'"
+    />
+  </div>
+
+  @if (error(); as message) {
+    <div
+      class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+    >
+      <mat-icon
+        svgIcon="triangle-alert"
+        class="icon-size-5 shrink-0 text-amber-600"
+      />
+      <p class="text-amber-800 dark:text-amber-300">{{ message }}</p>
+    </div>
+  }
+
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-5">
+    <!-- ─────────────────── las entradas ─────────────────── -->
+    <div class="xl:col-span-3">
+      <div
+        class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800"
+      >
+        <div
+          class="flex items-center gap-3 border-b border-neutral-200 bg-neutral-50/80 px-4 py-2.5 text-2xs font-semibold tracking-widest text-neutral-500 uppercase dark:border-neutral-800 dark:bg-neutral-900/40"
+        >
+          <span class="flex-1">Entrada</span>
+          <span class="w-56">Ruta</span>
+          <span class="w-40">Roles</span>
+          <span class="w-16 text-right">Orden</span>
+          <span class="w-8"></span>
+        </div>
+
+        @if (loading()) {
+          <div class="h-0.5 animate-pulse bg-primary-500"></div>
+        }
+
+        @for (row of rows(); track row.pk) {
+          <div
+            class="flex cursor-pointer items-center gap-3 border-b border-neutral-100 px-4 py-2.5 transition-colors last:border-b-0 hover:bg-neutral-50 dark:border-neutral-900 dark:hover:bg-neutral-900/50"
+            [class.bg-primary-50]="selected()?.pk === row.pk"
+            [class.dark:bg-primary-500\/10]="selected()?.pk === row.pk"
+            (click)="select(row)"
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-2">
+              @if (row.icon) {
+                <mat-icon
+                  [svgIcon]="row.icon"
+                  class="icon-size-4 shrink-0 text-neutral-400"
+                />
+              }
+              <span class="truncate font-medium">{{ row.title }}</span>
+              @if (row.type && row.type !== 'basic') {
+                <span
+                  class="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-2xs text-neutral-500 dark:bg-neutral-800"
+                  >{{ row.type }}</span
+                >
+              }
+            </div>
+
+            <div class="w-56 shrink-0 truncate">
+              @if (row.alive) {
+                <span class="font-mono text-xs text-neutral-500">{{
+                  row.link
+                }}</span>
+              } @else {
+                <span
+                  class="flex items-center gap-1.5 font-mono text-xs text-amber-700 dark:text-amber-400"
+                  [matTooltip]="
+                    row.link
+                      ? 'Esa ruta ya no existe en el front: la entrada no se muestra'
+                      : 'La entrada no lleva a ninguna parte'
+                  "
+                >
+                  <mat-icon
+                    svgIcon="unlink"
+                    class="icon-size-3.5 shrink-0"
+                  />
+                  {{ row.link || 'sin ruta' }}
+                </span>
+              }
+            </div>
+
+            <div class="w-40 shrink-0">
+              @if (row.roles.length) {
+                <span class="text-xs text-neutral-500"
+                  >{{ row.roles.length }}
+                  {{ row.roles.length === 1 ? 'rol' : 'roles' }}</span
+                >
+              } @else {
+                <span
+                  class="text-xs text-amber-700 dark:text-amber-400"
+                  matTooltip="Nadie la ve"
+                  >sin roles</span
+                >
+              }
+            </div>
+
+            <span
+              class="w-16 shrink-0 text-right text-xs text-neutral-500 tabular-nums"
+              >{{ row.order }}</span
+            >
+
+            <button
+              matIconButton
+              class="!size-8 shrink-0"
+              matTooltip="Borrar entrada"
+              (click)="borrar(row); $event.stopPropagation()"
+            >
+              <mat-icon
+                svgIcon="trash-2"
+                class="icon-size-4 text-neutral-400"
+              />
+            </button>
+          </div>
+        } @empty {
+          @if (!loading()) {
+            <div class="p-10 text-center text-sm text-neutral-500">
+              No hay entradas de menú, o el servicio no respondió.
+            </div>
+          }
+        }
+      </div>
+
+      <p class="mt-3 text-xs text-neutral-500">
+        Una entrada sólo se muestra si su ruta existe en el front. Las de enlace
+        roto son del front anterior: se quedan visibles aquí para poder
+        reapuntarlas o borrarlas, no en el menú de nadie.
+      </p>
+    </div>
+
+    <!-- ─────────────── el editor y la vista previa ─────────────── -->
+    <div class="flex flex-col gap-4 xl:col-span-2">
+      @if (draft(); as d) {
+        <app-section-card [heading]="d.pk ? 'Editar entrada' : 'Entrada nueva'">
+          <div class="flex flex-col gap-4">
+            <label class="flex flex-col gap-1">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+                >Título</span
+              >
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                [ngModel]="d.title"
+                (ngModelChange)="draft.set({ ...d, title: $event })"
+                name="title"
+              />
+            </label>
+
+            <label class="flex flex-col gap-1">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+                >Ruta</span
+              >
+              <!-- sólo rutas que existen: un enlace inventado es un 404 con nombre -->
+              <select
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                [ngModel]="d.link"
+                (ngModelChange)="pickRoute($event)"
+                name="link"
+              >
+                @for (view of catalog; track view.id) {
+                  <option [value]="view.route">
+                    {{ view.label }} — {{ view.route }}
+                  </option>
+                }
+                @if (d.link && !catalog.length) {
+                  <option [value]="d.link">{{ d.link }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="flex flex-col gap-1">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+                >Orden</span
+              >
+              <input
+                type="number"
+                class="w-28 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                [ngModel]="d.order"
+                (ngModelChange)="draft.set({ ...d, order: +$event })"
+                name="order"
+              />
+            </label>
+
+            <div class="flex flex-col gap-2">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+                >Quién la ve</span
+              >
+              <div class="flex flex-wrap gap-1.5">
+                @for (role of knownRoles(); track role) {
+                  <button
+                    type="button"
+                    class="rounded-full border px-2.5 py-1 font-mono text-2xs transition-colors"
+                    [class]="
+                      hasRole(role)
+                        ? 'border-primary-600 bg-primary-600 text-white'
+                        : 'border-neutral-200 text-neutral-500 hover:border-neutral-400 dark:border-neutral-700'
+                    "
+                    (click)="toggleRole(role)"
+                  >
+                    {{ role }}
+                  </button>
+                }
+              </div>
+              @if (!d.roles.length) {
+                <p class="text-xs text-amber-700 dark:text-amber-400">
+                  Sin roles no la ve nadie. Se guarda igual: a veces es lo que
+                  se quiere.
+                </p>
+              }
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <button
+                matButton="filled"
+                [disabled]="saving()"
+                (click)="guardar()"
+              >
+                {{ saving() ? 'Guardando…' : 'Guardar' }}
+              </button>
+              <button
+                matButton
+                (click)="cancelar()"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </app-section-card>
+      }
+
+      <app-section-card heading="Cómo queda el menú">
+        <label class="flex flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+            >Ver como</span
+          >
+          <select
+            class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+            [ngModel]="previewRole()"
+            (ngModelChange)="previewRole.set($event)"
+            name="previewRole"
+          >
+            @for (role of knownRoles(); track role) {
+              <option [value]="role">{{ role }}</option>
+            }
+          </select>
+        </label>
+
+        @if (preview().length) {
+          <div
+            class="mt-4 flex flex-col gap-1 rounded-lg border border-neutral-200 p-2 dark:border-neutral-800"
+          >
+            @for (item of preview(); track item.pk) {
+              <div class="flex items-center gap-2 rounded-lg px-2.5 py-2">
+                @if (item.icon) {
+                  <mat-icon
+                    [svgIcon]="item.icon"
+                    class="icon-size-5 text-neutral-500"
+                  />
+                }
+                <div class="min-w-0">
+                  <div class="text-sm font-medium">{{ item.title }}</div>
+                  <div class="truncate font-mono text-2xs text-neutral-400">
+                    {{ item.link }}
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div
+            class="mt-4 flex flex-col items-center gap-3 rounded-lg border border-dashed border-neutral-300 py-8 text-center dark:border-neutral-700"
+          >
+            <mat-icon
+              svgIcon="circle-slash"
+              class="icon-size-8 text-neutral-300"
+            />
+            <p class="max-w-56 text-sm text-neutral-500">
+              Ese rol no ve ninguna entrada con ruta viva. Al entrar cae en
+              <span class="font-mono">/admin/sin-acceso</span>.
+            </p>
+          </div>
+        }
+      </app-section-card>
+
+      <p class="text-xs text-neutral-500">
+        Esto decide lo que se enseña, no lo que se autoriza: quien autoriza es
+        cada microservicio con el rol del token.
+      </p>
+    </div>
+  </div>
+</div>

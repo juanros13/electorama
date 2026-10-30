@@ -1,0 +1,241 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Elecciones"
+    title="Flujo de votación"
+    subtitle="Avance de votación por casilla"
+  />
+
+  <!-- Totales -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Lista nominal</div>
+      <div class="text-3xl font-bold">
+        {{ progress()?.voterList ?? 0 | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Votos registrados</div>
+      <div class="text-3xl font-bold text-secondary-600">
+        {{ progress()?.progressVote ?? 0 | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">% de participación</div>
+      <div class="text-3xl font-bold text-emerald-600">
+        {{ totalPercent() | percent: '1.0-1' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtro -->
+  <mat-form-field class="w-full sm:max-w-xs">
+    <mat-label>Municipio</mat-label>
+    <mat-select
+      [ngModel]="municipalityId()"
+      (ngModelChange)="
+        municipalityId.set($event === '0' ? '' : $event); search()
+      "
+    >
+      @for (m of municipalities(); track m.id) {
+        <mat-option [value]="m.id.toString()">{{ m.nomMun }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- Table -->
+  <app-table-shell [loading]="loading()">
+    <table
+      mat-table
+      matSort
+      [dataSource]="data()"
+      class="w-full"
+    >
+      <ng-container matColumnDef="municipality">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Municipio
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.municipality }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="federalDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Federal
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.federalDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="localDistrict">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          D. Local
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.localDistrict }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="section">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header
+        >
+          Sección
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.sectionNumber }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="pollingbooth">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Casilla
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.pollingBoothName }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="category">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+        >
+          Categoría
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+        >
+          {{ row.categoryName }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="votingflow">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Votos
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          {{ row.progressVote ?? 0 | number }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="nominallist">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Lista nominal
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          {{ row.votersList | number }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="faltante">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          Faltante
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right"
+        >
+          {{ faltante(row) | number }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="percent">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          class="text-right"
+        >
+          %
+        </th>
+        <td
+          mat-cell
+          *matCellDef="let row"
+          class="text-right font-semibold"
+        >
+          {{ ratio(row) | percent: '1.0-1' }}
+        </td>
+      </ng-container>
+
+      <tr
+        mat-header-row
+        *matHeaderRowDef="displayedColumns"
+      ></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+      ></tr>
+    </table>
+
+    @if (!loading() && data().length === 0) {
+      <div class="p-8 text-center text-neutral-500">
+        Sin datos de flujo de votación.
+      </div>
+    }
+
+    <mat-paginator
+      [length]="resultsLength()"
+      [pageSize]="15"
+      [pageSizeOptions]="[15, 30, 100]"
+      showFirstLastButtons
+    />
+  </app-table-shell>
+</div>

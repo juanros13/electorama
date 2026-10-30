@@ -1,0 +1,66 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Censo · Reportes"
+    title="Total por municipio"
+    subtitle="Avance de censo y cédulas"
+  />
+
+  <mat-form-field class="w-full">
+    <mat-label>Buscar municipio</mat-label>
+    <input
+      matInput
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+    <mat-icon
+      matSuffix
+      svgIcon="search"
+    />
+  </mat-form-field>
+
+  <app-table-shell [loading]="loading()">
+    <table class="w-full text-sm">
+      <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+        <tr>
+          <th class="p-3">Municipio</th>
+          <th class="p-3 text-right">Secciones</th>
+          <th class="p-3 text-right">Meta</th>
+          <th class="p-3 text-right">Viviendas</th>
+          <th class="p-3 text-right">Avance censo</th>
+          <th class="p-3 text-right">Cédulas</th>
+          <th class="p-3 text-right">Avance</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of filtered(); track r.id) {
+          <tr class="border-t border-neutral-200 dark:border-neutral-800">
+            <td class="p-3">{{ r.municipalityName }}</td>
+            <td class="p-3 text-right">{{ r.section | number }}</td>
+            <td class="p-3 text-right">{{ r.goalHolmes | number }}</td>
+            <td class="p-3 text-right">{{ r.folioCaptured | number }}</td>
+            <td class="p-3 text-right">{{ censusProgress(r) | percent }}</td>
+            <td class="p-3 text-right">{{ r.formCaptured | number }}</td>
+            <td class="p-3 text-right">
+              <span
+                class="rounded px-2 py-0.5 text-xs font-bold text-white"
+                [class]="
+                  progress(r) >= 0.8
+                    ? 'bg-emerald-500'
+                    : progress(r) >= 0.4
+                      ? 'bg-amber-500'
+                      : 'bg-red-500'
+                "
+              >
+                {{ progress(r) | percent }}
+              </span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (!loading() && filtered().length === 0) {
+      <div class="p-8 text-center text-neutral-500">Sin datos.</div>
+    }
+  </app-table-shell>
+</div>

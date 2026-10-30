@@ -1,0 +1,45 @@
+/* -------------------------------------------------------------------------- */
+/* Entrada orquestada (cívica enérgica)                                       */
+/* Reveal escalonado: añade .anim-rise y, opcionalmente, .anim-delay-{1..6}.  */
+/* Respeta prefers-reduced-motion.                                            */
+/* -------------------------------------------------------------------------- */
+@keyframes anim-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer components {
+  .anim-rise {
+    animation: anim-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .anim-delay-1 {
+    animation-delay: 0.05s;
+  }
+  .anim-delay-2 {
+    animation-delay: 0.1s;
+  }
+  .anim-delay-3 {
+    animation-delay: 0.15s;
+  }
+  .anim-delay-4 {
+    animation-delay: 0.2s;
+  }
+  .anim-delay-5 {
+    animation-delay: 0.25s;
+  }
+  .anim-delay-6 {
+    animation-delay: 0.3s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise {
+    animation: none;
+  }
+}

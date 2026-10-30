@@ -1,0 +1,195 @@
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    eyebrow="Tabasco · campaña 2027"
+    title="Tablero de campaña"
+    subtitle="La tabla de «estructura estatal» por municipio, con el avance real de la estructura principal. Meta = lista nominal del INE × % de meta de cada sección."
+  />
+
+  <!-- ──────────────────── totales del estado ──────────────────── -->
+  @let t = total();
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <app-stat-card
+      label="Secciones"
+      [value]="loading() ? null : t.sections"
+      icon="map-pin"
+    />
+    <app-stat-card
+      label="Lista nominal"
+      [value]="loading() ? null : t.nominalList"
+      icon="users"
+      accent="secondary"
+    />
+    <app-stat-card
+      label="Meta 2027"
+      [value]="loading() ? null : t.meta"
+      icon="target"
+      accent="neutral"
+    />
+    <app-stat-card
+      [label]="'Promotores de ' + (t.promotersNeeded | number)"
+      [value]="loading() ? null : t.promoters"
+      icon="user-round-check"
+      accent="emerald"
+    />
+    <app-stat-card
+      [label]="'Movilizadores de ' + (t.mobilizersNeeded | number)"
+      [value]="loading() ? null : t.mobilizers"
+      icon="users-round"
+      accent="amber"
+    />
+    <app-stat-card
+      [label]="'Convencidos · ' + (t.progress | percent: '1.0-0') + ' de la meta'"
+      [value]="loading() ? null : t.members"
+      icon="heart-handshake"
+      accent="primary"
+    />
+  </div>
+
+  <!-- ──────────────────── la tabla del Excel + avance ──────────────────── -->
+  <app-table-shell
+    [loading]="loading()"
+    [empty]="!rows().length"
+    emptyText="No hay municipios con secciones vigentes."
+  >
+    <table class="w-full min-w-[64rem] text-sm">
+      <thead
+        class="sticky top-0 z-[1] border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+      >
+        <tr>
+          @for (col of columns; track col.key) {
+            <th
+              class="px-3 py-2.5 font-semibold first:pl-4 last:pr-4"
+              [class.text-right]="col.align === 'right'"
+              [attr.aria-sort]="ariaSort(col.key)"
+            >
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 uppercase hover:text-neutral-800 dark:hover:text-neutral-200"
+                [class.flex-row-reverse]="col.align === 'right'"
+                [matTooltip]="col.hint"
+                [matTooltipDisabled]="!col.hint"
+                (click)="sortBy(col.key)"
+              >
+                {{ col.label }}
+                @if (sortIcon(col.key); as icon) {
+                  <mat-icon [svgIcon]="icon" class="icon-size-3.5" />
+                }
+              </button>
+            </th>
+          }
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (r of sorted(); track r.id) {
+          <ng-container
+            *ngTemplateOutlet="row; context: { $implicit: r, total: false }"
+          />
+        }
+      </tbody>
+
+      @if (rows().length) {
+        <tfoot
+          class="sticky bottom-0 border-t-2 border-neutral-300 bg-neutral-50 font-semibold dark:border-neutral-700 dark:bg-neutral-900"
+        >
+          <ng-container
+            *ngTemplateOutlet="row; context: { $implicit: t, total: true }"
+          />
+        </tfoot>
+      }
+    </table>
+  </app-table-shell>
+
+  <p class="text-xs text-neutral-500">
+    Promotores y movilizadores requeridos se redondean hacia arriba por
+    municipio. El avance cuenta sólo los convencidos de la campaña 2027; los de
+    2024 (campaña cerrada) van de referencia y se analizan aparte. El voto de
+    MORENA 2024 es el total municipal del Excel de la campaña, no el cómputo
+    oficial. Haz clic en un municipio para ver su desglose por coordinador,
+    promotor y movilizador.
+  </p>
+</div>
+
+@if (selected(); as sel) {
+  <app-municipality-breakdown [municipality]="sel" (closed)="selected.set(null)" />
+}
+
+<ng-template #row let-r let-isTotal="total">
+  <tr
+    class="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
+    [class]="
+      isTotal
+        ? ''
+        : 'cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900' +
+          (selected()?.id === r.id ? ' bg-primary-50 dark:bg-primary-950/40' : '')
+    "
+    (click)="isTotal || selected.set(r)"
+  >
+    <td class="py-2.5 pr-3 pl-4 font-medium">
+      @if (isTotal) {
+        {{ r.name }}
+      } @else {
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-left hover:text-primary-600 dark:hover:text-primary-400"
+          [attr.aria-label]="'Ver el desglose de ' + r.name"
+        >
+          {{ r.name }}
+          <mat-icon svgIcon="chevron-right" class="icon-size-3.5 text-neutral-400" />
+        </button>
+      }
+    </td>
+    <td class="px-3 py-2.5 text-right tabular-nums">
+      {{ r.sections | number }}
+    </td>
+    <td class="px-3 py-2.5 text-right tabular-nums">
+      {{ r.nominalList | number }}
+    </td>
+    <td class="px-3 py-2.5 text-right font-medium tabular-nums">
+      {{ r.meta | number }}
+    </td>
+    <td
+      class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums"
+      [class]="coverageClass(r.promoters, r.promotersNeeded)"
+    >
+      {{ r.promoters | number
+      }}<span class="text-neutral-400"> / {{ r.promotersNeeded | number }}</span>
+    </td>
+    <td
+      class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums"
+      [class]="coverageClass(r.mobilizers, r.mobilizersNeeded)"
+    >
+      {{ r.mobilizers | number
+      }}<span class="text-neutral-400">
+        / {{ r.mobilizersNeeded | number }}</span
+      >
+    </td>
+    <td class="px-3 py-2.5 text-right tabular-nums">
+      {{ r.members | number }}
+    </td>
+    <td class="px-3 py-2.5">
+      <div class="flex items-center gap-2">
+        <div
+          class="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+        >
+          <div
+            class="h-full rounded-full transition-[width] duration-700"
+            [class]="coverageBarClass(r.members, r.meta)"
+            [style.width.%]="r.progress > 1 ? 100 : r.progress * 100"
+          ></div>
+        </div>
+        <span
+          class="w-10 text-right text-xs tabular-nums"
+          [class]="coverageClass(r.members, r.meta)"
+          >{{ r.progress | percent: '1.0-0' }}</span
+        >
+      </div>
+    </td>
+    <td class="px-3 py-2.5 text-right text-neutral-400 tabular-nums">
+      {{ r.previousMembers === null ? '—' : (r.previousMembers | number) }}
+    </td>
+    <td class="py-2.5 pr-4 pl-3 text-right text-neutral-600 tabular-nums dark:text-neutral-400">
+      {{ r.morenaVote2024 === null ? '—' : (r.morenaVote2024 | number) }}
+    </td>
+  </tr>
+</ng-template>

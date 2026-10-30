@@ -1,0 +1,927 @@
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    eyebrow="Tabasco · marco INE 2026"
+    title="Catálogo territorial"
+    subtitle="Secciones, municipios y distritos. El techo de meta de cada sección es un % de su lista nominal 2027; la meta de cada promotor, en su puesto."
+  />
+
+  <!-- ──────────── cifras: siguen al filtro de secciones ──────────── -->
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <app-stat-card
+      [label]="summaryLabel()"
+      [value]="summary()?.sections ?? null"
+      icon="map-pin"
+    />
+    <app-stat-card
+      label="Municipios"
+      [value]="summary()?.municipalities ?? null"
+      icon="map"
+      accent="secondary"
+    />
+    <app-stat-card
+      label="Distritos federales"
+      [value]="summary()?.federalDistricts ?? null"
+      icon="landmark"
+      accent="emerald"
+    />
+    <app-stat-card
+      label="Distritos locales"
+      [value]="summary()?.localDistricts ?? null"
+      icon="building-2"
+      accent="amber"
+    />
+    <app-stat-card
+      label="Lista nominal 2027"
+      [value]="summary()?.nominalList ?? null"
+      icon="users"
+      accent="secondary"
+    />
+    <app-stat-card
+      label="Meta total (techos)"
+      [value]="summary()?.meta ?? null"
+      icon="target"
+      accent="neutral"
+    />
+  </div>
+  @if (summary()?.withoutNominalList; as missing) {
+    <p
+      class="-mt-2 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400"
+    >
+      <mat-icon svgIcon="triangle-alert" class="icon-size-4" />
+      {{ missing }}
+      {{ missing === 1 ? 'sección no tiene' : 'secciones no tienen' }} lista
+      nominal: su techo no se calcula hasta capturarla.
+    </p>
+  }
+
+  <!-- ──────────────────── pestañas ──────────────────── -->
+  <nav
+    class="flex gap-1 border-b border-neutral-200 dark:border-neutral-800"
+    role="tablist"
+  >
+    @for (
+      t of [
+        { id: 'sections', label: 'Secciones' },
+        { id: 'municipalities', label: 'Municipios' },
+        { id: 'federal', label: 'Distritos federales' },
+        { id: 'local', label: 'Distritos locales' },
+      ];
+      track t.id
+    ) {
+      <button
+        type="button"
+        role="tab"
+        class="-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors"
+        [class]="
+          tab() === t.id
+            ? 'border-primary-600 text-primary-700 dark:text-primary-400'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+        "
+        [attr.aria-selected]="tab() === t.id"
+        (click)="tab.set($any(t.id))"
+      >
+        {{ t.label }}
+      </button>
+    }
+  </nav>
+
+  <!-- ======================================================================
+       SECCIONES
+       ====================================================================== -->
+  @if (tab() === 'sections') {
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-5">
+      <div class="flex min-w-0 flex-col gap-4 xl:col-span-3">
+        <!-- filtros -->
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col gap-1">
+            <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+              >Sección</span
+            >
+            <input
+              type="search"
+              inputmode="numeric"
+              placeholder="0249"
+              class="w-28 rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm dark:border-neutral-800 dark:bg-transparent"
+              [ngModel]="filter().q ?? ''"
+              (ngModelChange)="setFilter({ q: $event || null })"
+              [ngModelOptions]="{ updateOn: 'blur' }"
+              (keydown.enter)="$any($event.target).blur()"
+              name="q"
+            />
+          </label>
+
+          <label class="flex flex-col gap-1">
+            <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+              >Municipio</span
+            >
+            <select
+              class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+              [ngModel]="filter().municipalityId ?? ''"
+              (ngModelChange)="setFilter({ municipalityId: toNumber($event) })"
+              name="municipality"
+            >
+              <option value="">Todos</option>
+              @for (m of municipalities(); track m.id) {
+                <option [value]="m.id">{{ m.name }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-1">
+            <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+              >DF</span
+            >
+            <select
+              class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+              [ngModel]="filter().federalDistrict ?? ''"
+              (ngModelChange)="setFilter({ federalDistrict: toNumber($event) })"
+              name="federal"
+            >
+              <option value="">Todos</option>
+              @for (d of activeFederal(); track d.id) {
+                <option [value]="d.number">{{ d.number }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-1">
+            <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+              >DL</span
+            >
+            <select
+              class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+              [ngModel]="filter().localDistrict ?? ''"
+              (ngModelChange)="setFilter({ localDistrict: toNumber($event) })"
+              name="local"
+            >
+              <option value="">Todos</option>
+              @for (d of localDistricts(); track d.id) {
+                <option [value]="d.number">{{ d.number }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-1">
+            <span class="text-2xs tracking-wider text-neutral-500 uppercase"
+              >Vigencia</span
+            >
+            <select
+              class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+              [ngModel]="statusValue(filter().status)"
+              (ngModelChange)="setFilter({ status: toStatus($event) })"
+              name="status"
+            >
+              <option value="true">Vigentes</option>
+              <option value="false">Dadas de baja</option>
+              <option value="all">Todas</option>
+            </select>
+          </label>
+
+          @if (hasFilters()) {
+            <button matButton (click)="clearFilters()">Limpiar</button>
+          }
+        </div>
+
+        <!-- tabla -->
+        <div
+          class="relative overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+        >
+          @if (sectionsLoading()) {
+            <div
+              class="absolute inset-x-0 top-0 z-10 h-1 animate-pulse bg-primary-500"
+            ></div>
+          }
+          <table class="w-full text-sm">
+            <thead
+              class="border-b border-neutral-200 text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+            >
+              <tr>
+                <th class="px-4 py-2.5 font-semibold">Sección</th>
+                <th class="px-3 py-2.5 font-semibold">Municipio</th>
+                <th class="px-3 py-2.5 text-center font-semibold">DF</th>
+                <th class="px-3 py-2.5 text-center font-semibold">DL</th>
+                <th class="px-3 py-2.5 text-right font-semibold">Techo</th>
+                <th
+                  class="px-3 py-2.5 text-right font-semibold"
+                  matTooltip="Suma de las metas de los promotores de la sección"
+                >
+                  Repartida
+                </th>
+                <th
+                  class="px-3 py-2.5 text-right font-semibold"
+                  matTooltip="Promotores asignados / los que pide la campaña (1 por cada 200 de meta)"
+                >
+                  Prom.
+                </th>
+                <th
+                  class="px-3 py-2.5 text-right font-semibold"
+                  matTooltip="Movilizadores asignados / los que pide la campaña (1 por cada 20 de meta)"
+                >
+                  Mov.
+                </th>
+                <th class="px-3 py-2.5 text-right font-semibold">Localid.</th>
+                <th class="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of sections(); track s.id) {
+                @let g = goalOf(s);
+                @let bal = balance(s.meta, g?.goal ?? null);
+                @let isSelected = selected()?.id === s.id;
+                <!-- la elegida: fondo de marca, barra a la izquierda y el número en color;
+                     sin hover encima, para que el mouse no la apague -->
+                <tr
+                  class="cursor-pointer border-b border-neutral-100 transition-colors last:border-0 dark:border-neutral-900"
+                  [class]="
+                    isSelected
+                      ? 'bg-primary-100 font-medium dark:bg-primary-500/25'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                  "
+                  [attr.aria-selected]="isSelected"
+                  (click)="select(s)"
+                >
+                  <td
+                    class="px-4 py-2.5 transition-shadow"
+                    [class]="
+                      isSelected
+                        ? 'shadow-[inset_4px_0_0_var(--color-primary-500)]'
+                        : ''
+                    "
+                  >
+                    <span
+                      class="font-mono font-semibold"
+                      [class]="
+                        isSelected
+                          ? 'text-primary-700 dark:text-primary-300'
+                          : ''
+                      "
+                      >{{ s.section }}</span
+                    >
+                    <span class="ml-2 text-2xs text-neutral-400">{{
+                      sectionType(s.type)
+                    }}</span>
+                  </td>
+                  <td class="truncate px-3 py-2.5">{{ s.municipalityName }}</td>
+                  <td class="px-3 py-2.5 text-center tabular-nums">
+                    {{ s.federalDistrict ?? '—' }}
+                  </td>
+                  <td class="px-3 py-2.5 text-center tabular-nums">
+                    {{ s.localDistrict ?? '—' }}
+                  </td>
+                  <td class="px-3 py-2.5 text-right font-medium tabular-nums">
+                    @if (s.nominalList === null) {
+                      <span
+                        class="mr-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-2xs font-semibold text-amber-800 uppercase dark:bg-amber-500/15 dark:text-amber-300"
+                        matTooltip="Sin lista nominal: el techo no se calcula"
+                        >sin LN</span
+                      >
+                    }
+                    {{ s.meta ?? 0 | number: '1.0-0' }}
+                  </td>
+                  <td
+                    class="px-3 py-2.5 text-right tabular-nums"
+                    [matTooltip]="balanceHint(s.meta, g?.goal ?? 0)"
+                  >
+                    @if (g) {
+                      <span
+                        class="inline-flex items-center gap-1"
+                        [class]="
+                          bal === 'over'
+                            ? 'text-red-600 dark:text-red-400'
+                            : bal === 'under'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                        "
+                      >
+                        @if (bal === 'over' || bal === 'under') {
+                          <mat-icon
+                            svgIcon="triangle-alert"
+                            class="icon-size-3.5"
+                          />
+                        }
+                        {{ g.goal | number: '1.0-0' }}
+                      </span>
+                    } @else {
+                      <span class="text-neutral-300 dark:text-neutral-700"
+                        >—</span
+                      >
+                    }
+                  </td>
+                  @let needCoord = requiredPromoters(s.meta);
+                  @let needProm = requiredMobilizers(s.meta);
+                  <td
+                    class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums"
+                    [class]="coverageClass(g?.positions ?? 0, needCoord)"
+                  >
+                    {{ g?.positions ?? 0
+                    }}<span class="text-neutral-400"> / {{ needCoord }}</span>
+                  </td>
+                  <td
+                    class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums"
+                    [class]="coverageClass(g?.promoters ?? 0, needProm)"
+                  >
+                    {{ g?.promoters ?? 0
+                    }}<span class="text-neutral-400"> / {{ needProm }}</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-right text-neutral-500 tabular-nums">
+                    {{ s.localities }}
+                  </td>
+                  <td class="px-4 py-2.5 text-right">
+                    @if (!s.status) {
+                      <span
+                        class="rounded-full bg-neutral-200 px-2 py-0.5 text-2xs font-semibold text-neutral-600 uppercase dark:bg-neutral-800 dark:text-neutral-400"
+                        >baja</span
+                      >
+                    } @else if (!s.hasGeometry) {
+                      <mat-icon
+                        svgIcon="map-pin-off"
+                        class="icon-size-4 text-neutral-400"
+                        matTooltip="Sin geometría: no sale en los mapas"
+                      />
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                @if (!sectionsLoading()) {
+                  <tr>
+                    <td colspan="10" class="p-8 text-center text-neutral-500">
+                      Ninguna sección coincide con los filtros.
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- paginación -->
+        <div
+          class="flex items-center justify-between text-sm text-neutral-500"
+        >
+          <span class="tabular-nums">
+            @if (total()) {
+              {{ page() * pageSize + 1 | number }}–{{ pageEnd() | number }} de
+              {{ total() | number }}
+            } @else {
+              0 secciones
+            }
+          </span>
+          <div class="flex gap-1">
+            <button
+              matIconButton
+              [disabled]="!page() || sectionsLoading()"
+              (click)="goToPage(-1)"
+              aria-label="Página anterior"
+            >
+              <mat-icon svgIcon="chevron-left" />
+            </button>
+            <button
+              matIconButton
+              [disabled]="lastPage() || sectionsLoading()"
+              (click)="goToPage(1)"
+              aria-label="Página siguiente"
+            >
+              <mat-icon svgIcon="chevron-right" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ──────────────────── detalle de la sección ──────────────────── -->
+      <div class="flex flex-col gap-4 xl:col-span-2">
+        @if (selected(); as s) {
+          <app-section-card>
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div
+                  class="text-2xs font-semibold tracking-widest text-secondary-700 uppercase dark:text-secondary-400"
+                >
+                  Sección {{ sectionType(s.type).toLowerCase() }}
+                </div>
+                <h2 class="mt-1 font-mono text-3xl font-bold">
+                  {{ s.section }}
+                </h2>
+                <div class="mt-1 text-sm text-neutral-500">
+                  {{ s.municipalityName }} · DF {{ s.federalDistrict ?? '—' }} ·
+                  DL {{ s.localDistrict ?? '—' }}
+                </div>
+              </div>
+              <button matIconButton (click)="close()" aria-label="Cerrar">
+                <mat-icon svgIcon="x" />
+              </button>
+            </div>
+
+            <div
+              class="mt-5 grid grid-cols-2 gap-4 border-t border-neutral-200 pt-4 dark:border-neutral-800"
+            >
+              <label class="flex flex-col gap-1">
+                <span
+                  class="text-2xs tracking-wider text-neutral-500 uppercase"
+                  >Lista nominal 2027</span
+                >
+                <input
+                  type="number"
+                  min="0"
+                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm tabular-nums dark:border-neutral-800 dark:bg-transparent"
+                  [ngModel]="draftNominalList()"
+                  (ngModelChange)="draftNominalList.set(toNullableNumber($event))"
+                  placeholder="Sin capturar"
+                  name="nominalList"
+                />
+              </label>
+
+              <label class="flex flex-col gap-1">
+                <span
+                  class="text-2xs tracking-wider text-neutral-500 uppercase"
+                  >% de meta</span
+                >
+                <div class="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    class="w-full rounded-lg border border-neutral-200 py-2 pr-8 pl-3 text-sm tabular-nums dark:border-neutral-800 dark:bg-transparent"
+                    [ngModel]="draftPercentage()"
+                    (ngModelChange)="draftPercentage.set(toNullableNumber($event))"
+                    name="goalPercentage"
+                  />
+                  <span
+                    class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-neutral-400"
+                    >%</span
+                  >
+                </div>
+              </label>
+
+              @if (draftNominalList() === null) {
+                <!-- sin LN el techo se captura a mano, como antes -->
+                <label class="flex flex-col gap-1">
+                  <span
+                    class="text-2xs tracking-wider text-neutral-500 uppercase"
+                    >Techo de meta</span
+                  >
+                  <input
+                    type="number"
+                    min="0"
+                    class="rounded-lg border border-neutral-200 px-3 py-2 text-sm tabular-nums dark:border-neutral-800 dark:bg-transparent"
+                    [ngModel]="draftMeta()"
+                    (ngModelChange)="draftMeta.set(toNullableNumber($event))"
+                    name="meta"
+                  />
+                </label>
+              } @else {
+                <div class="flex flex-col gap-1">
+                  <span
+                    class="text-2xs tracking-wider text-neutral-500 uppercase"
+                    >Techo de meta</span
+                  >
+                  <div
+                    class="rounded-lg bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-800 tabular-nums dark:bg-primary-500/15 dark:text-primary-200"
+                    matTooltip="LN × % de meta, redondeado"
+                  >
+                    {{ previewMeta() ?? 0 | number: '1.0-0' }}
+                  </div>
+                </div>
+              }
+
+              <label class="flex flex-col gap-1">
+                <span
+                  class="text-2xs tracking-wider text-neutral-500 uppercase"
+                  >Vigencia</span
+                >
+                <select
+                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                  [ngModel]="statusValue(draftStatus())"
+                  (ngModelChange)="draftStatus.set($event === 'true')"
+                  name="sectionStatus"
+                >
+                  <option value="true">Vigente</option>
+                  <option value="false">Dada de baja</option>
+                </select>
+              </label>
+            </div>
+
+            @if (invalidDraft() && dirtySection()) {
+              <p class="mt-2 text-xs text-red-600">
+                @if (draftNominalList() === null && s.nominalList !== null) {
+                  La lista nominal no se puede quitar; cámbiala por otro valor.
+                } @else {
+                  Revisa los valores: el % va de 0 a 100 y nada puede ser
+                  negativo.
+                }
+              </p>
+            }
+
+            <!-- lo que pide la campaña para este techo -->
+            @let sg = goalOf(s);
+            @let needCoordDetail = requiredPromoters(previewMeta());
+            @let needPromDetail = requiredMobilizers(previewMeta());
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <div
+                class="rounded-lg border border-neutral-200 px-3 py-2.5 dark:border-neutral-800"
+              >
+                <div class="text-2xs tracking-wider text-neutral-500 uppercase">
+                  Promotores
+                </div>
+                <div
+                  class="font-display text-xl font-bold tabular-nums"
+                  [class]="coverageClass(sg?.positions ?? 0, needCoordDetail)"
+                >
+                  {{ sg?.positions ?? 0 }}
+                  <span class="text-sm font-medium text-neutral-400"
+                    >de {{ needCoordDetail }}</span
+                  >
+                </div>
+                <div class="text-2xs text-neutral-400">
+                  1 por cada 200 de meta
+                </div>
+              </div>
+              <div
+                class="rounded-lg border border-neutral-200 px-3 py-2.5 dark:border-neutral-800"
+              >
+                <div class="text-2xs tracking-wider text-neutral-500 uppercase">
+                  Movilizadores
+                </div>
+                <div
+                  class="font-display text-xl font-bold tabular-nums"
+                  [class]="coverageClass(sg?.promoters ?? 0, needPromDetail)"
+                >
+                  {{ sg?.promoters ?? 0 }}
+                  <span class="text-sm font-medium text-neutral-400"
+                    >de {{ needPromDetail }}</span
+                  >
+                </div>
+                <div class="text-2xs text-neutral-400">
+                  1 por cada 20 de meta
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center gap-2">
+              <button
+                matButton="filled"
+                [disabled]="
+                  !dirtySection() || savingSection() || invalidDraft()
+                "
+                (click)="saveSection()"
+              >
+                {{ savingSection() ? 'Guardando…' : 'Guardar' }}
+              </button>
+              @if (!s.hasGeometry) {
+                <span class="text-xs text-neutral-400"
+                  >Sin geometría: no sale en los mapas.</span
+                >
+              }
+            </div>
+          </app-section-card>
+
+          <!-- los coordinadores y su meta -->
+          <app-section-card heading="Meta repartida">
+            @let bal = balance(s.meta, assigned());
+            <div
+              class="mb-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm"
+              [class]="
+                bal === 'over'
+                  ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                  : bal === 'under'
+                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300'
+                    : bal === 'ok'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                      : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400'
+              "
+            >
+              <span class="font-display text-xl font-bold tabular-nums"
+                >{{ assigned() | number: '1.0-0' }} /
+                {{ s.meta ?? 0 | number: '1.0-0' }}</span
+              >
+              <span>{{ balanceHint(s.meta, assigned()) }}</span>
+            </div>
+
+            @if (positionsLoading()) {
+              <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+            } @else if (!positions().length) {
+              <p class="text-sm text-neutral-500">
+                No hay puestos sobre esta sección. Los promotores con
+                nombramiento municipal la cubren sin meta propia.
+              </p>
+            } @else {
+              <ul class="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-900">
+                @for (p of positions(); track p.id) {
+                  <li class="flex items-center gap-3 py-2.5">
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate font-medium">
+                        {{ p.holderName || 'Puesto vacante' }}
+                      </div>
+                      <div class="text-2xs text-neutral-500">
+                        {{
+                          levelName(p.level)
+                        }}
+                        · {{ p.membershipCount | number }} convencidos
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      class="w-24 rounded-lg border border-neutral-200 px-2 py-1.5 text-right text-sm tabular-nums dark:border-neutral-800 dark:bg-transparent"
+                      [ngModel]="goalDrafts()[p.id]"
+                      (ngModelChange)="setGoalDraft(p.id, $event)"
+                      [name]="'goal-' + p.id"
+                      [attr.aria-label]="'Meta de ' + (p.holderName || 'puesto')"
+                    />
+                    <button
+                      matIconButton
+                      [disabled]="!goalChanged(p) || savingGoal() === p.id"
+                      (click)="saveGoal(p)"
+                      matTooltip="Guardar la meta del puesto"
+                      aria-label="Guardar meta"
+                    >
+                      <mat-icon svgIcon="check" />
+                    </button>
+                  </li>
+                }
+              </ul>
+              <p class="mt-3 text-xs text-neutral-400">
+                Sólo los promotores cuentan contra el techo.
+              </p>
+            }
+          </app-section-card>
+
+          <!-- localidades -->
+          <app-section-card heading="Localidades">
+            <form
+              class="mb-3 flex gap-2"
+              (submit)="$event.preventDefault(); addLocality()"
+            >
+              <input
+                type="text"
+                placeholder="Nueva localidad"
+                class="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm uppercase dark:border-neutral-800 dark:bg-transparent"
+                [ngModel]="newLocality()"
+                (ngModelChange)="newLocality.set($event)"
+                name="newLocality"
+              />
+              <button
+                matButton="outlined"
+                type="submit"
+                [disabled]="!newLocality().trim()"
+              >
+                <mat-icon svgIcon="plus" /> Agregar
+              </button>
+            </form>
+
+            @if (localitiesLoading()) {
+              <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+            } @else if (!localities().length) {
+              <p class="text-sm text-neutral-500">
+                Esta sección no tiene localidades registradas.
+              </p>
+            } @else {
+              <ul class="flex max-h-80 flex-col overflow-auto">
+                @for (l of localities(); track l.id) {
+                  <li
+                    class="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  >
+                    @if (editingLocality() === l.id) {
+                      <input
+                        type="text"
+                        class="min-w-0 flex-1 rounded-lg border border-neutral-200 px-2 py-1 text-sm uppercase dark:border-neutral-800 dark:bg-transparent"
+                        [ngModel]="localityDraft()"
+                        (ngModelChange)="localityDraft.set($event)"
+                        (keydown.enter)="saveLocality(l)"
+                        (keydown.escape)="editingLocality.set(null)"
+                        [name]="'loc-' + l.id"
+                      />
+                      <button
+                        matIconButton
+                        (click)="saveLocality(l)"
+                        aria-label="Guardar"
+                      >
+                        <mat-icon svgIcon="check" />
+                      </button>
+                      <button
+                        matIconButton
+                        (click)="editingLocality.set(null)"
+                        aria-label="Cancelar"
+                      >
+                        <mat-icon svgIcon="x" />
+                      </button>
+                    } @else {
+                      <span class="min-w-0 flex-1 truncate text-sm">{{
+                        l.localidad
+                      }}</span>
+                      <button
+                        matIconButton
+                        class="opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        (click)="startRenameLocality(l)"
+                        aria-label="Renombrar"
+                      >
+                        <mat-icon svgIcon="pencil" class="icon-size-4" />
+                      </button>
+                      <button
+                        matIconButton
+                        class="opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        (click)="removeLocality(l)"
+                        aria-label="Quitar"
+                      >
+                        <mat-icon svgIcon="trash-2" class="icon-size-4" />
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </app-section-card>
+        } @else {
+          <app-section-card>
+            <div class="flex flex-col items-center gap-3 py-12 text-center">
+              <mat-icon svgIcon="map-pin" class="icon-size-8 text-primary-600" />
+              <p class="max-w-64 text-sm text-neutral-500">
+                Elige una sección para editar su techo de meta, ver cómo está
+                repartida entre promotores y administrar sus localidades.
+              </p>
+            </div>
+          </app-section-card>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ======================================================================
+       MUNICIPIOS
+       ====================================================================== -->
+  @if (tab() === 'municipalities') {
+    <div
+      class="relative overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      @if (catalogsLoading()) {
+        <div
+          class="absolute inset-x-0 top-0 z-10 h-1 animate-pulse bg-primary-500"
+        ></div>
+      }
+      <table class="w-full text-sm">
+        <thead
+          class="border-b border-neutral-200 text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+        >
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">Clave</th>
+            <th class="px-3 py-2.5 font-semibold">Municipio</th>
+            <th class="px-3 py-2.5 text-right font-semibold">Secciones</th>
+            <th class="px-3 py-2.5 text-right font-semibold">Meta (techos)</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of municipalities(); track m.id) {
+            <tr
+              class="group border-b border-neutral-100 last:border-0 dark:border-neutral-900"
+            >
+              <td class="px-4 py-2.5 font-mono text-neutral-500">
+                {{ m.code }}
+              </td>
+              <td class="px-3 py-2.5">
+                @if (renaming() === m.id) {
+                  <div class="flex items-center gap-1">
+                    <input
+                      type="text"
+                      maxlength="50"
+                      class="w-72 rounded-lg border border-neutral-200 px-2 py-1 text-sm uppercase dark:border-neutral-800 dark:bg-transparent"
+                      [ngModel]="renameDraft()"
+                      (ngModelChange)="renameDraft.set($event)"
+                      (keydown.enter)="saveRename(m)"
+                      (keydown.escape)="renaming.set(null)"
+                      [name]="'mun-' + m.id"
+                    />
+                    <button
+                      matIconButton
+                      (click)="saveRename(m)"
+                      aria-label="Guardar"
+                    >
+                      <mat-icon svgIcon="check" />
+                    </button>
+                    <button
+                      matIconButton
+                      (click)="renaming.set(null)"
+                      aria-label="Cancelar"
+                    >
+                      <mat-icon svgIcon="x" />
+                    </button>
+                  </div>
+                } @else {
+                  <span class="font-medium">{{ m.name }}</span>
+                  <button
+                    matIconButton
+                    class="opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    (click)="startRename(m)"
+                    matTooltip="Renombrar"
+                    aria-label="Renombrar"
+                  >
+                    <mat-icon svgIcon="pencil" class="icon-size-4" />
+                  </button>
+                }
+              </td>
+              <td class="px-3 py-2.5 text-right tabular-nums">
+                {{ m.sections | number }}
+              </td>
+              <td class="px-3 py-2.5 text-right font-medium tabular-nums">
+                {{ m.meta | number }}
+              </td>
+              <td class="px-4 py-2.5 text-right">
+                <button
+                  matButton
+                  (click)="showSectionsOf({ municipalityId: m.id })"
+                >
+                  Ver secciones
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ======================================================================
+       DISTRITOS
+       ====================================================================== -->
+  @if (tab() === 'federal' || tab() === 'local') {
+    @let federal = tab() === 'federal';
+    @if (federal) {
+      <p class="text-sm text-neutral-500">
+        Distritación federal 2023, vigente para el proceso 2026-2027. Los
+        distritos que desaparecieron se conservan dados de baja porque otros
+        servicios guardan su id.
+      </p>
+    }
+    <div
+      class="relative overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead
+          class="border-b border-neutral-200 text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+        >
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">Distrito</th>
+            <th class="px-3 py-2.5 font-semibold">Municipios</th>
+            <th class="px-3 py-2.5 text-right font-semibold">Secciones</th>
+            <th class="px-3 py-2.5 text-right font-semibold">Meta (techos)</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (
+            d of federal ? federalDistricts() : localDistricts();
+            track d.id
+          ) {
+            <tr
+              class="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
+              [class.opacity-50]="!d.status"
+            >
+              <td class="px-4 py-2.5">
+                <span class="font-display text-lg font-bold tabular-nums">{{
+                  d.number
+                }}</span>
+                @if (!d.status) {
+                  <span
+                    class="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-2xs font-semibold text-neutral-600 uppercase dark:bg-neutral-800 dark:text-neutral-400"
+                    >baja</span
+                  >
+                }
+              </td>
+              <td class="px-3 py-2.5 text-neutral-600 dark:text-neutral-400">
+                {{ d.municipalities || '—' }}
+              </td>
+              <td class="px-3 py-2.5 text-right tabular-nums">
+                {{ d.sections | number }}
+              </td>
+              <td class="px-3 py-2.5 text-right font-medium tabular-nums">
+                {{ d.meta | number }}
+              </td>
+              <td class="px-4 py-2.5 text-right">
+                @if (d.status) {
+                  <button
+                    matButton
+                    (click)="
+                      showSectionsOf(
+                        federal
+                          ? { federalDistrict: d.number }
+                          : { localDistrict: d.number }
+                      )
+                    "
+                  >
+                    Ver secciones
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="p-8 text-center text-neutral-500">
+                Sin distritos para este estado.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

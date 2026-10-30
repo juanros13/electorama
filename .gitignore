@@ -1,0 +1,32 @@
+# --- secretos / configuración local ---
+.env
+.env.*
+!.env.example
+**/secrets/
+**/tokens/
+client_secret*.json
+StoredCredential
+*.key
+*.pem
+
+# --- build / dependencias ---
+target/
+node_modules/
+dist/
+.angular/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/flutter/ephemeral/
+infra/db/reference/data/
+
+# --- IDE / SO ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+*.log.err
+__pycache__/
+.claude/settings.local.json

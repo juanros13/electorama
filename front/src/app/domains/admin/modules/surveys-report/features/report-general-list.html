@@ -1,0 +1,81 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Censo · Reportes"
+    title="Reporte estatal por municipio"
+    subtitle="Avance de censo por servidor"
+  >
+    <button
+      actions
+      matButton="tonal"
+      type="button"
+      (click)="downloadCsv()"
+    >
+      <mat-icon svgIcon="download" />
+      Descargar CSV
+    </button>
+  </app-page-header>
+
+  <!-- Búsqueda -->
+  <mat-form-field class="w-full">
+    <mat-label>Buscar (municipio, servidor o sección)</mat-label>
+    <input
+      matInput
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+    <mat-icon
+      matSuffix
+      svgIcon="search"
+    />
+  </mat-form-field>
+
+  <!-- Tabla -->
+  <app-table-shell [loading]="loading()">
+    <table class="w-full text-sm">
+      <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+        <tr>
+          <th class="p-3">Municipio</th>
+          <th class="p-3">Servidor</th>
+          <th class="p-3 text-right">Sección</th>
+          <th class="p-3 text-right">Meta</th>
+          <th class="p-3 text-right">Viviendas</th>
+          <th class="p-3 text-right">Capturadas</th>
+          <th class="p-3 text-right">% Avance</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of filtered(); track r.id) {
+          <tr
+            class="cursor-pointer border-t border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
+            (click)="goToServer(r)"
+          >
+            <td class="p-3">{{ r.municipalityName }}</td>
+            <td class="p-3">{{ r.name }}</td>
+            <td class="p-3 text-right">{{ r.sectionNumber }}</td>
+            <td class="p-3 text-right">{{ r.goalHolmes | number }}</td>
+            <td class="p-3 text-right">{{ r.folioCaptured | number }}</td>
+            <td class="p-3 text-right">{{ r.formCaptured | number }}</td>
+            <td class="p-3 text-right">
+              <span
+                class="rounded px-2 py-0.5 text-xs font-bold text-white"
+                [class]="
+                  progress(r) >= 0.8
+                    ? 'bg-emerald-500'
+                    : progress(r) >= 0.4
+                      ? 'bg-amber-500'
+                      : 'bg-red-500'
+                "
+              >
+                {{ progress(r) | percent }}
+              </span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (!loading() && filtered().length === 0) {
+      <div class="p-8 text-center text-neutral-500">Sin resultados.</div>
+    }
+  </app-table-shell>
+</div>

@@ -1,0 +1,65 @@
+<div class="flex flex-auto flex-col gap-6 p-6 md:p-10">
+  <app-page-header
+    eyebrow="Censo · Reportes"
+    title="Avance de censo por municipio"
+    subtitle="Estadísticas estatales"
+  />
+
+  @if (loading()) {
+    <div class="mt-10 text-center text-neutral-500">Cargando reporte…</div>
+  } @else {
+    <!-- Totales -->
+    <div class="mt-6 grid grid-cols-1 items-center gap-4 md:grid-cols-3">
+      <app-report-card
+        [title]="'Meta de viviendas'"
+        [goal]="totalGoal()"
+        [captured]="totalCaptured()"
+        [toCapture]="totalToCapture()"
+        [main]="true"
+      />
+      <div
+        class="text-center text-3xl font-extrabold tracking-tight md:text-4xl"
+      >
+        Estadísticas<br />estatales
+      </div>
+      <div class="flex justify-center">
+        <div
+          class="flex h-32 w-32 items-center justify-center rounded-full text-5xl font-bold"
+          [class]="
+            totalPercent() >= 80
+              ? 'bg-emerald-100 text-emerald-700'
+              : totalPercent() >= 40
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-red-100 text-red-700'
+          "
+        >
+          {{ totalPercent() }}%
+        </div>
+      </div>
+    </div>
+
+    <!-- Por municipio -->
+    <div
+      class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4"
+    >
+      @for (mun of municipalities(); track mun.municipalityId) {
+        <button
+          type="button"
+          class="text-left"
+          (click)="goToDetails(mun)"
+        >
+          <app-report-card
+            [title]="mun.municipalityName"
+            [goal]="mun.goalHolmes"
+            [captured]="mun.formCaptured"
+            [toCapture]="mun.formToCapture"
+          />
+        </button>
+      }
+    </div>
+
+    @if (municipalities().length === 0) {
+      <div class="mt-10 text-center text-neutral-500">Sin datos de avance.</div>
+    }
+  }
+</div>

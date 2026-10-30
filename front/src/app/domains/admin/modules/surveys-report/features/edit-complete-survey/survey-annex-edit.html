@@ -1,0 +1,239 @@
+<div class="mt-2">
+  @for (member of memberForms; track member; let i = $index) {
+    <div
+      [formGroup]="member"
+      class="my-6 rounded-md border p-4"
+    >
+      <h4 class="mb-4 text-lg font-semibold">
+        {{ metas()[i].fullName }}
+        <span class="text-secondary text-sm">
+          ({{ metas()[i].isDisable ? 'Discapacidad' : 'Tercera edad' }})
+        </span>
+      </h4>
+
+      <!-- Origen étnico / lengua -->
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <mat-checkbox
+          formControlName="ethnic"
+          (change)="toggleField($event.checked, i, 'whichGroup')"
+        >
+          ¿Pertenece a un grupo étnico o afromexicano?
+        </mat-checkbox>
+        <mat-form-field>
+          <mat-label>¿Cuál grupo?</mat-label>
+          <input
+            matInput
+            formControlName="whichGroup"
+            appUppercase
+          />
+        </mat-form-field>
+        <div></div>
+        <mat-checkbox
+          formControlName="indigenous"
+          (change)="toggleField($event.checked, i, 'indigenousLanguage')"
+        >
+          ¿Habla alguna lengua indígena?
+        </mat-checkbox>
+        <mat-form-field>
+          <mat-label>Lengua indígena</mat-label>
+          <mat-select
+            formControlName="indigenousLanguage"
+            [compareWith]="compareById"
+          >
+            @for (l of indigenousLanguages(); track l.id) {
+              <mat-option [value]="l">{{ l.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Otra lengua</mat-label>
+          <input
+            matInput
+            formControlName="otherSpeak"
+            appUppercase
+          />
+        </mat-form-field>
+      </div>
+
+      <!-- Discapacidad -->
+      @if (metas()[i].isDisable) {
+        <hr class="my-4" />
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>Origen de la discapacidad</mat-label>
+            <mat-select
+              formControlName="origin"
+              [compareWith]="compareById"
+            >
+              @for (o of origins(); track o.id) {
+                <mat-option [value]="o">{{ o.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Información de la discapacidad</mat-label>
+            <mat-select
+              formControlName="information"
+              [compareWith]="compareById"
+            >
+              @for (inf of information(); track inf.id) {
+                <mat-option [value]="inf">{{ inf.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipo de discapacidad</mat-label>
+            <mat-select
+              formControlName="type"
+              [compareWith]="compareById"
+            >
+              @for (t of types(); track t.id) {
+                <mat-option [value]="t">{{ t.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Causa de la discapacidad</mat-label>
+            <mat-select
+              formControlName="cause"
+              [compareWith]="compareById"
+            >
+              @for (c of causes(); track c.id) {
+                <mat-option [value]="c">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otra causa</mat-label>
+            <input
+              matInput
+              formControlName="anotherCause"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-checkbox
+            formControlName="healthCertificate"
+            (change)="toggleField($event.checked, i, 'whichCertificate')"
+          >
+            ¿Cuenta con certificado médico?
+          </mat-checkbox>
+          <mat-form-field>
+            <mat-label>¿Cuál certificado?</mat-label>
+            <input
+              matInput
+              formControlName="whichCertificate"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-checkbox formControlName="requiresHelp"
+            >¿Requiere ayuda de un auxiliar?</mat-checkbox
+          >
+        </div>
+      }
+
+      <!-- Auxiliar / tutor -->
+      <hr class="my-4" />
+      <h5 class="mb-2 font-medium">Datos del auxiliar / tutor</h5>
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <mat-form-field>
+          <mat-label>Nombre</mat-label>
+          <input
+            matInput
+            formControlName="nameAux"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido paterno</mat-label>
+          <input
+            matInput
+            formControlName="lastNameAux"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido materno</mat-label>
+          <input
+            matInput
+            formControlName="surNameAux"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Parentesco</mat-label>
+          <mat-select
+            formControlName="relationship"
+            [compareWith]="compareById"
+          >
+            @for (r of relationship(); track r.id) {
+              <mat-option [value]="r">{{ r.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Otro parentesco</mat-label>
+          <input
+            matInput
+            formControlName="otherRelationship"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Teléfono</mat-label>
+          <input
+            matInput
+            formControlName="phoneNumber"
+            inputmode="numeric"
+            maxlength="10"
+          />
+        </mat-form-field>
+      </div>
+
+      <!-- Documentos -->
+      <hr class="my-4" />
+      <h5 class="mb-2 font-medium">Documentos</h5>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        @for (doc of docFields; track doc.key) {
+          <div class="flex items-center gap-2">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="fileInput.click()"
+            >
+              <mat-icon
+                svgIcon="upload"
+                class="mr-1"
+              />
+              {{ doc.label }}
+            </button>
+            <span class="text-secondary truncate text-sm">{{
+              docName(i, doc.key)
+            }}</span>
+            <input
+              #fileInput
+              type="file"
+              hidden
+              (change)="onFile($event, i, doc.key)"
+            />
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="mt-4 flex justify-end">
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      (click)="save()"
+      [disabled]="saving()"
+    >
+      Guardar anexos
+    </button>
+  </div>
+</div>

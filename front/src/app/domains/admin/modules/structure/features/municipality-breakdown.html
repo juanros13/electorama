@@ -1,0 +1,293 @@
+@let m = municipality();
+@let l = levels();
+
+<!-- fondo: cierra al hacer clic fuera -->
+<div class="fixed inset-0 z-[60] bg-neutral-950/30 backdrop-blur-[1px]" (click)="closed.emit()"></div>
+
+<aside
+  class="anim-rise fixed inset-y-0 right-0 z-[61] flex w-full max-w-3xl flex-col bg-white shadow-2xl dark:bg-neutral-950"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'Desglose de ' + m.name"
+>
+  <!-- ──────────────────── encabezado ──────────────────── -->
+  <header class="flex items-start gap-4 border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
+    <div class="min-w-0 flex-1">
+      <p class="text-2xs font-semibold tracking-wider text-neutral-500 uppercase">
+        Desglose del municipio · estructura principal 2027
+      </p>
+      <h2 class="font-display truncate text-2xl font-bold">{{ m.name }}</h2>
+      <p class="text-xs text-neutral-500">
+        {{ m.sections | number }} secciones · meta {{ m.meta | number }}
+        @if (l.lastCapture) {
+          · última captura {{ l.lastCapture | date: "d MMM, HH:mm" }}
+        }
+      </p>
+    </div>
+    <button
+      type="button"
+      class="grid size-9 shrink-0 place-items-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      aria-label="Cerrar"
+      (click)="closed.emit()"
+    >
+      <mat-icon svgIcon="x" class="icon-size-5" />
+    </button>
+  </header>
+
+  <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+    @if (loading()) {
+      <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+    } @else if (error()) {
+      <p class="text-sm text-red-600">No se pudo leer la estructura del municipio.</p>
+    } @else {
+      <!-- ──────────────────── los tres niveles ──────────────────── -->
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <!-- referente -->
+        <section class="flex flex-col gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+          <div class="flex items-center gap-2 text-2xs font-semibold tracking-wider text-neutral-500 uppercase">
+            <span class="size-2 rounded-full bg-primary-500"></span> Coordinador
+          </div>
+          @for (r of referents(); track r.id) {
+            @if (r.holderName) {
+              <p class="text-sm leading-tight font-semibold">{{ r.holderName }}</p>
+            } @else {
+              <p class="text-sm font-semibold text-red-600 dark:text-red-400">Vacante</p>
+            }
+          } @empty {
+            <p class="text-sm font-semibold text-neutral-400">Sin puesto de coordinador</p>
+          }
+          <div class="mt-auto">
+            <div class="flex items-baseline justify-between text-xs">
+              <span class="text-neutral-500">Convencidos</span>
+              <span class="font-semibold tabular-nums">
+                {{ l.members | number }}
+                <span class="font-normal text-neutral-400">/ {{ m.meta | number }}</span>
+              </span>
+            </div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+              <div
+                class="h-full rounded-full"
+                [class]="coverageBarClass(l.members, m.meta)"
+                [style.width.%]="coverage(l.members, m.meta) > 1 ? 100 : coverage(l.members, m.meta) * 100"
+              ></div>
+            </div>
+            <p class="mt-1 text-2xs text-neutral-500">
+              {{ coverage(l.members, m.meta) | percent: "1.0-1" }} de la meta ·
+              <b class="tabular-nums">+{{ l.last7 | number }}</b> en 7 días
+            </p>
+          </div>
+        </section>
+
+        <!-- promotores y movilizadores: ocupados / requeridos -->
+        @for (
+          lv of [
+            {
+              label: 'Promotores',
+              dot: 'bg-emerald-500',
+              held: l.promoters.held,
+              people: l.promoters.people,
+              positions: l.promoters.positions,
+              needed: m.promotersNeeded,
+              note: l.sectionsStaffed + ' de ' + m.sections + ' secciones con promotor',
+            },
+            {
+              label: 'Movilizadores',
+              dot: 'bg-amber-500',
+              held: l.mobilizers.held,
+              people: l.mobilizers.people,
+              positions: l.mobilizers.positions,
+              needed: m.mobilizersNeeded,
+              note: '1 por cada 20 de meta',
+            },
+          ];
+          track lv.label
+        ) {
+          <section class="flex flex-col gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+            <div class="flex items-center gap-2 text-2xs font-semibold tracking-wider text-neutral-500 uppercase">
+              <span class="size-2 rounded-full" [class]="lv.dot"></span> {{ lv.label }}
+            </div>
+            <p class="font-display text-3xl leading-none font-bold tabular-nums" [class]="coverageClass(lv.held, lv.needed)">
+              {{ lv.held | number }}<span class="text-base font-medium text-neutral-400"> / {{ lv.needed | number }}</span>
+            </p>
+            <div class="mt-auto">
+              <div class="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                <div
+                  class="h-full rounded-full"
+                  [class]="coverageBarClass(lv.held, lv.needed)"
+                  [style.width.%]="coverage(lv.held, lv.needed) > 1 ? 100 : coverage(lv.held, lv.needed) * 100"
+                ></div>
+              </div>
+              <p class="mt-1 text-2xs text-neutral-500">
+                ocupados de los requeridos · {{ lv.positions | number }} puestos creados,
+                {{ lv.positions - lv.held | number }} vacantes
+              </p>
+              @if (lv.people && lv.people !== lv.held) {
+                <p class="text-2xs text-neutral-500">
+                  <b class="tabular-nums">{{ lv.people | number }}</b> personas: algunas llevan varias secciones
+                </p>
+              }
+              <p class="text-2xs text-neutral-400">{{ lv.note }}</p>
+            </div>
+          </section>
+        }
+      </div>
+
+      <!-- ──────────────────── por sección ──────────────────── -->
+      <div class="flex flex-wrap items-center gap-3">
+        <h3 class="mr-auto text-sm font-semibold">
+          Por sección
+          <span class="font-normal text-neutral-500">· {{ visible().length | number }}</span>
+        </h3>
+        <input
+          type="search"
+          placeholder="Sección o nombre"
+          class="w-44 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-transparent"
+          [value]="query()"
+          (input)="setQuery($any($event.target).value)"
+        />
+        <div class="flex rounded-full border border-neutral-200 p-0.5 text-xs dark:border-neutral-800">
+          @for (
+            f of [
+              { value: 'all', label: 'Todas' },
+              { value: 'staffed', label: 'Con promotor' },
+              { value: 'vacant', label: 'Con vacantes' },
+            ];
+            track f.value
+          ) {
+            <button
+              type="button"
+              class="rounded-full px-3 py-1"
+              [class]="filter() === f.value ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500'"
+              (click)="setFilter($any(f.value))"
+            >
+              {{ f.label }}
+            </button>
+          }
+        </div>
+        <select
+          class="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs dark:border-neutral-800 dark:bg-transparent"
+          aria-label="Ordenar"
+          [value]="sort()"
+          (change)="sort.set($any($event.target).value)"
+        >
+          <option value="section">Por número</option>
+          <option value="members">Más convencidos</option>
+          <option value="progress">Mayor avance</option>
+        </select>
+      </div>
+
+      <ul class="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200 dark:divide-neutral-900 dark:border-neutral-800">
+        @for (s of shown(); track s.sectionGeoId) {
+          @let open = expanded().has(s.sectionGeoId);
+          <li>
+            <button
+              type="button"
+              class="grid w-full grid-cols-[1.25rem_auto_1fr_auto] items-center gap-3 px-4 py-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              [attr.aria-expanded]="open"
+              (click)="toggle(s.sectionGeoId)"
+            >
+              <mat-icon
+                svgIcon="chevron-right"
+                class="icon-size-4 text-neutral-400 transition-transform"
+                [class.rotate-90]="open"
+              />
+              <span class="font-semibold whitespace-nowrap tabular-nums">Sección {{ s.section }}</span>
+              <span class="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-xs text-neutral-500">
+                <span>
+                  <b class="tabular-nums" [class]="s.promotersHeld ? 'text-neutral-800 dark:text-neutral-200' : 'text-red-600 dark:text-red-400'">{{ s.promotersHeld }}</b>/{{ s.promoters.length }} promotores
+                </span>
+                <span>
+                  <b class="tabular-nums text-neutral-800 dark:text-neutral-200">{{ s.mobilizersHeld }}</b>/{{ s.mobilizers }} movilizadores
+                </span>
+                @if (s.last7) {
+                  <span class="text-emerald-600 dark:text-emerald-400">+{{ s.last7 }} en 7 días</span>
+                }
+              </span>
+              <span class="flex items-center gap-2">
+                <span class="text-xs tabular-nums">
+                  <b>{{ s.members | number }}</b><span class="text-neutral-400"> / {{ s.goal | number }}</span>
+                </span>
+                <span class="h-1.5 w-16 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                  <span
+                    class="block h-full rounded-full"
+                    [class]="coverageBarClass(s.members, s.goal)"
+                    [style.width.%]="coverage(s.members, s.goal) > 1 ? 100 : coverage(s.members, s.goal) * 100"
+                  ></span>
+                </span>
+              </span>
+            </button>
+
+            @if (open) {
+              <div class="flex flex-col gap-2 bg-neutral-50 px-4 py-3 pl-12 dark:bg-neutral-900/50">
+                @for (p of s.promoters; track p.position.id) {
+                  <div class="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+                    <div class="flex items-center gap-3 px-3 py-2">
+                      <span class="size-2 shrink-0 rounded-full bg-emerald-500" title="Promotor"></span>
+                      <span class="w-24 shrink-0 font-mono text-xs text-neutral-500">{{ p.position.sectionKey }}</span>
+                      <span class="min-w-0 flex-1 truncate text-sm" [class.font-semibold]="p.position.holderName">
+                        @if (p.position.holderName) {
+                          {{ p.position.holderName }}
+                        } @else {
+                          <span class="text-red-600 italic dark:text-red-400">Vacante</span>
+                        }
+                      </span>
+                      <span class="shrink-0 text-xs tabular-nums">
+                        <b>{{ p.members | number }}</b><span class="text-neutral-400"> / {{ p.position.goal ?? 0 | number }}</span>
+                      </span>
+                    </div>
+                    @if (p.mobilizers.length) {
+                      <ul class="border-t border-neutral-100 py-1 dark:border-neutral-900">
+                        @for (mb of p.mobilizers; track mb.id) {
+                          <li class="flex items-center gap-3 px-3 py-1 pl-8 text-xs">
+                            <span class="size-1.5 shrink-0 rounded-full bg-amber-500" title="Movilizador"></span>
+                            <span class="w-24 shrink-0 font-mono text-neutral-500">{{ mb.sectionKey }}</span>
+                            <span class="min-w-0 flex-1 truncate">
+                              @if (mb.holderName) {
+                                {{ mb.holderName }}
+                              } @else {
+                                <span class="text-red-600 italic dark:text-red-400">Vacante</span>
+                              }
+                            </span>
+                            @if (mb.membersLast7) {
+                              <span class="text-emerald-600 dark:text-emerald-400">+{{ mb.membersLast7 }}</span>
+                            }
+                            <span class="shrink-0 tabular-nums">
+                              <b>{{ mb.members | number }}</b><span class="text-neutral-400"> / {{ mb.goal ?? 0 | number }}</span>
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    } @else {
+                      <p class="border-t border-neutral-100 px-3 py-1.5 pl-8 text-2xs text-neutral-400 dark:border-neutral-900">
+                        Sin movilizadores
+                      </p>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </li>
+        } @empty {
+          <li class="px-4 py-6 text-center text-sm text-neutral-500">
+            @if (sections().length) {
+              Ninguna sección coincide con el filtro.
+            } @else {
+              El municipio todavía no tiene promotores en la estructura 2027.
+            }
+          </li>
+        }
+      </ul>
+
+      @if (visible().length > shown().length) {
+        <button
+          type="button"
+          class="self-center rounded-full border border-neutral-200 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+          (click)="more()"
+        >
+          Ver {{ visible().length - shown().length < 30 ? visible().length - shown().length : 30 }} más
+          <span class="text-neutral-400">de {{ visible().length - shown().length | number }}</span>
+        </button>
+      }
+    }
+  </div>
+</aside>

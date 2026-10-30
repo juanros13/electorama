@@ -1,0 +1,970 @@
+@if (showStepper()) {
+  <form
+    class="bg-card overflow-hidden"
+    [formGroup]="form"
+  >
+    <mat-vertical-stepper [linear]="false">
+      <!-- Paso: domicilio -->
+      <mat-step
+        formGroupName="step2"
+        [stepControl]="step2"
+      >
+        <ng-template matStepLabel>Datos del domicilio</ng-template>
+        <div class="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>Localidad</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <mat-select formControlName="locality">
+              @for (option of localityOptions(); track option) {
+                <mat-option [value]="option">{{ option }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otra localidad</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="localityOther"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Calle</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="street"
+              appUppercase
+            />
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Número exterior</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="exteriorNumber"
+            />
+            <mat-error>Este campo es requerido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Número interior</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="interiorNumber"
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Código postal</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="postalCode"
+              inputmode="numeric"
+              maxlength="5"
+            />
+            <mat-error>Código postal inválido.</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Referencias</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="reference"
+              appUppercase
+            />
+          </mat-form-field>
+        </div>
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+            [disabled]="step2.invalid"
+          >
+            Siguiente
+          </button>
+        </div>
+      </mat-step>
+
+      <!-- Paso: datos personales del entrevistado -->
+      <mat-step
+        formGroupName="step0"
+        [stepControl]="step0"
+      >
+        <ng-template matStepLabel
+          >Datos personales del entrevistado</ng-template
+        >
+        <div class="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>Nombre</mat-label>
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="name"
+              appUppercase
+            />
+            @if (step0.get('name')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+            @if (step0.get('name')?.hasError('pattern')) {
+              <mat-error>Nombre inválido.</mat-error>
+            }
+            @if (step0.get('name')?.hasError('manualError')) {
+              <mat-error>No coincide con la CURP.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Apellido paterno</mat-label>
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="lastName"
+              appUppercase
+            />
+            @if (step0.get('lastName')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+            @if (step0.get('lastName')?.hasError('pattern')) {
+              <mat-error>Dato inválido.</mat-error>
+            }
+            @if (step0.get('lastName')?.hasError('manualError')) {
+              <mat-error>No coincide con la CURP.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Apellido materno</mat-label>
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="surName"
+              appUppercase
+            />
+            @if (step0.get('surName')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+            @if (step0.get('surName')?.hasError('pattern')) {
+              <mat-error>Dato inválido.</mat-error>
+            }
+            @if (step0.get('surName')?.hasError('manualError')) {
+              <mat-error>No coincide con la CURP.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Fecha de nacimiento</mat-label>
+            <input
+              matInput
+              type="date"
+              formControlName="dateOfBirth"
+              [max]="today"
+            />
+            <mat-hint>Se completa al validar la CURP.</mat-hint>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Sexo</mat-label>
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <mat-select formControlName="gender">
+              @for (gender of genders; track gender) {
+                <mat-option [value]="gender">{{ gender }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Teléfono fijo</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="landlinePhone"
+              inputmode="numeric"
+              maxlength="10"
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Teléfono móvil</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="mobilePhone"
+              inputmode="numeric"
+              maxlength="10"
+            />
+            @if (step0.get('mobilePhone')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>CURP</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="curp"
+              appUppercase
+              maxlength="18"
+            />
+            @if (step0.get('curp')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+            @if (step0.get('curp')?.hasError('pattern')) {
+              <mat-error>CURP inválida.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Documento de identificación</mat-label>
+            <mat-icon
+              svgIcon="credit-card"
+              matPrefix
+            />
+            <mat-select formControlName="identificationDocument">
+              @for (doc of idDocuments; track doc) {
+                <mat-option [value]="doc">{{ doc }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Número del documento de identificación</mat-label>
+            <mat-icon
+              svgIcon="credit-card"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="noIdentificationDocument"
+              appUppercase
+            />
+            @if (step0.get('noIdentificationDocument')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+            @if (step0.get('noIdentificationDocument')?.hasError('pattern')) {
+              <mat-error>Número inválido.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>¿Cuántas familias viven en la vivienda?</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="familyNumbers"
+              inputmode="numeric"
+              maxlength="2"
+            />
+            @if (step0.get('familyNumbers')?.hasError('required')) {
+              <mat-error>Este campo es requerido.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Ingreso</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="income"
+              inputmode="numeric"
+              maxlength="10"
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Actividad económica - Profesión</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="profession"
+              [compareWith]="compareById"
+            >
+              @for (p of professions(); track p.id) {
+                <mat-option [value]="p">{{ p.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otra profesión</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="otherProfession"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Actividad económica - Oficio</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="job"
+              [compareWith]="compareById"
+            >
+              @for (j of jobs(); track j.id) {
+                <mat-option [value]="j">{{ j.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otro oficio</mat-label>
+            <mat-icon
+              svgIcon="type"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="otherJob"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-form-field class="md:col-span-2">
+            <mat-label
+              >Relación familiar (padre, madre, hermana, etc.)</mat-label
+            >
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <mat-select
+              formControlName="relationship"
+              [compareWith]="compareById"
+            >
+              @for (r of relationship(); track r.id) {
+                <mat-option [value]="r">{{ r.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <hr class="my-4" />
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-checkbox formControlName="isDisabled"
+            >¿Presentas alguna discapacidad?</mat-checkbox
+          >
+          <mat-form-field>
+            <mat-label>Nombre de la discapacidad</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <mat-select
+              formControlName="isDisabledName"
+              [compareWith]="compareById"
+            >
+              @for (d of disabilities(); track d.id) {
+                <mat-option [value]="d">{{ d.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox formControlName="ethnicGroup"
+            >¿Se considera indígena?</mat-checkbox
+          >
+          <mat-checkbox formControlName="federalProgram"
+            >¿Cuenta con algún programa federal?</mat-checkbox
+          >
+          <mat-form-field>
+            <mat-label>Nombre del programa federal</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <mat-select
+              formControlName="surveyFederalProgram"
+              [compareWith]="compareById"
+            >
+              @for (p of federalPrograms(); track p.id) {
+                <mat-option [value]="p">{{ p.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox formControlName="afroMexicanGroup"
+            >¿Es afrodescendiente o afromexicano?</mat-checkbox
+          >
+          <mat-checkbox formControlName="ownBusiness"
+            >¿Cuenta con negocio propio?</mat-checkbox
+          >
+          <mat-form-field>
+            <mat-label>¿Cuánto tiempo lleva con su negocio? (años)</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="timeActivity"
+              inputmode="numeric"
+              maxlength="2"
+            />
+          </mat-form-field>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="validateCurp()"
+            [disabled]="step0.get('curp')?.invalid"
+          >
+            Validar la CURP
+          </button>
+          <button
+            mat-flat-button
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+            [disabled]="step0.invalid"
+          >
+            Siguiente
+          </button>
+        </div>
+      </mat-step>
+
+      <!-- Paso: datos familiares -->
+      <mat-step formGroupName="step1">
+        <ng-template matStepLabel>Datos familiares</ng-template>
+        <div
+          formArrayName="familyMembers"
+          class="mt-5"
+        >
+          @for (member of familyControls; track member; let i = $index) {
+            <div
+              [formGroupName]="i"
+              class="my-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <h4 class="col-span-full font-semibold">
+                Integrante {{ i + 1 }}
+              </h4>
+              <mat-form-field>
+                <mat-label>Nombre</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <input
+                  matInput
+                  formControlName="names"
+                  appUppercase
+                />
+                @if (member.get('names')?.hasError('required')) {
+                  <mat-error>Este campo es requerido.</mat-error>
+                }
+                @if (member.get('names')?.hasError('pattern')) {
+                  <mat-error>Dato inválido.</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Apellido paterno</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <input
+                  matInput
+                  formControlName="lastName"
+                  appUppercase
+                />
+                @if (member.get('lastName')?.hasError('required')) {
+                  <mat-error>Este campo es requerido.</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Apellido materno</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <input
+                  matInput
+                  formControlName="surName"
+                  appUppercase
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Fecha de nacimiento</mat-label>
+                <input
+                  matInput
+                  type="date"
+                  formControlName="dateOfBirth"
+                  [max]="today"
+                />
+                @if (member.get('dateOfBirth')?.hasError('required')) {
+                  <mat-error>Este campo es requerido.</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Sexo</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <mat-select formControlName="gender">
+                  @for (gender of genders; track gender) {
+                    <mat-option [value]="gender">{{ gender }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Actividad económica - Profesión</mat-label>
+                <mat-icon
+                  svgIcon="house"
+                  matPrefix
+                />
+                <mat-select
+                  formControlName="surveyProfession"
+                  [compareWith]="compareById"
+                  (selectionChange)="
+                    switchMemberOther($event.value, i, 'otherSurveyProfession')
+                  "
+                >
+                  @for (p of professions(); track p.id) {
+                    <mat-option [value]="p">{{ p.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Otra profesión</mat-label>
+                <mat-icon
+                  svgIcon="type"
+                  matPrefix
+                />
+                <input
+                  matInput
+                  formControlName="otherSurveyProfession"
+                  appUppercase
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Ocupación</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <mat-select
+                  formControlName="surveyJob"
+                  [compareWith]="compareById"
+                  (selectionChange)="
+                    switchMemberOther($event.value, i, 'otherSurveyJob')
+                  "
+                >
+                  @for (j of jobs(); track j.id) {
+                    <mat-option [value]="j">{{ j.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Otra ocupación</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <input
+                  matInput
+                  formControlName="otherSurveyJob"
+                  appUppercase
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Relación familiar</mat-label>
+                <mat-icon
+                  svgIcon="circle-user"
+                  matPrefix
+                />
+                <mat-select
+                  formControlName="familyRelationship"
+                  [compareWith]="compareById"
+                >
+                  @for (r of relationship(); track r.id) {
+                    <mat-option [value]="r">{{ r.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-checkbox formControlName="ethnicGroup"
+                >¿Es indígena?</mat-checkbox
+              >
+
+              <div class="col-span-full grid grid-cols-1 gap-6 md:grid-cols-2">
+                <mat-checkbox
+                  formControlName="isDisabled"
+                  (change)="
+                    toggleMemberField($event.checked, i, 'isDisabledName')
+                  "
+                >
+                  ¿Presenta alguna discapacidad o enfermedad degenerativa?
+                </mat-checkbox>
+                <mat-checkbox
+                  formControlName="federalProgram"
+                  (change)="
+                    toggleMemberField($event.checked, i, 'surveyFederalProgram')
+                  "
+                >
+                  ¿Cuenta con algún programa federal?
+                </mat-checkbox>
+                <mat-form-field>
+                  <mat-label>Tipo de discapacidad</mat-label>
+                  <mat-icon
+                    svgIcon="file-text"
+                    matPrefix
+                  />
+                  <mat-select
+                    formControlName="isDisabledName"
+                    [compareWith]="compareById"
+                  >
+                    @for (d of disabilities(); track d.id) {
+                      <mat-option [value]="d">{{ d.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Nombre del programa federal</mat-label>
+                  <mat-icon
+                    svgIcon="file-text"
+                    matPrefix
+                  />
+                  <mat-select
+                    formControlName="surveyFederalProgram"
+                    [compareWith]="compareById"
+                  >
+                    @for (p of federalPrograms(); track p.id) {
+                      <mat-option [value]="p">{{ p.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-checkbox
+                  formControlName="isHeadOfHousehold"
+                  (change)="setHeadOfHousehold(i)"
+                >
+                  Se le relaciona como jefe de familia.
+                </mat-checkbox>
+              </div>
+
+              <div class="col-span-full">
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Borrar"
+                  (click)="removeMember(i)"
+                >
+                  <mat-icon
+                    svgIcon="trash-2"
+                    class="text-red-600"
+                  />
+                </button>
+              </div>
+              <hr class="col-span-full" />
+            </div>
+          }
+        </div>
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            class="md:mr-auto"
+            (click)="addMember()"
+            [disabled]="reachedMemberLimit()"
+          >
+            Agregar
+          </button>
+          <button
+            mat-flat-button
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+          >
+            Siguiente
+          </button>
+        </div>
+      </mat-step>
+
+      <!-- Paso: vivienda -->
+      <mat-step
+        formGroupName="step3"
+        [stepControl]="step3"
+      >
+        <ng-template matStepLabel>Datos de la vivienda</ng-template>
+        <div class="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>Vivienda</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="housing"
+              [compareWith]="compareById"
+            >
+              @for (h of housingTypes(); track h.id) {
+                <mat-option [value]="h">{{ h.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otra vivienda</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="housingOther"
+              appUppercase
+            />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Condición de la vivienda</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="housingCondition"
+              [compareWith]="compareById"
+            >
+              @for (c of housingConditions(); track c.id) {
+                <mat-option [value]="c">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Documentos de la vivienda</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="housingDocument"
+              [compareWith]="compareById"
+            >
+              @for (d of housingDocuments(); track d.id) {
+                <mat-option [value]="d">{{ d.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Paredes</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="wall"
+              [compareWith]="compareById"
+            >
+              @for (w of walls(); track w.id) {
+                <mat-option [value]="w">{{ w.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Techo</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="roof"
+              [compareWith]="compareById"
+            >
+              @for (r of roofs(); track r.id) {
+                <mat-option [value]="r">{{ r.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Piso</mat-label>
+            <mat-icon
+              svgIcon="house"
+              matPrefix
+            />
+            <mat-select
+              formControlName="floor"
+              [compareWith]="compareById"
+            >
+              @for (f of floors(); track f.id) {
+                <mat-option [value]="f">{{ f.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+            [disabled]="step3.invalid"
+          >
+            Siguiente
+          </button>
+        </div>
+      </mat-step>
+
+      <!-- Paso: servicios -->
+      <mat-step formGroupName="step4">
+        <ng-template matStepLabel>Servicios</ng-template>
+        <ul class="mt-5">
+          @for (service of services; track service.id) {
+            <li>
+              <mat-checkbox (change)="toggleService($event.checked, service)">{{
+                service.name
+              }}</mat-checkbox>
+            </li>
+          }
+        </ul>
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+          >
+            Siguiente
+          </button>
+        </div>
+      </mat-step>
+
+      <!-- Paso: actividades culturales -->
+      <mat-step
+        formGroupName="step5"
+        [stepControl]="step5"
+      >
+        <ng-template matStepLabel>Actividades culturales</ng-template>
+        <div class="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <mat-checkbox formControlName="culturalActivityParticipation">
+            ¿Tú o algún miembro de tu familia participa en alguna actividad
+            cultural en tu comunidad?
+          </mat-checkbox>
+          <mat-checkbox formControlName="knowledgeCulturalActivity">
+            ¿Tienes conocimiento de alguna actividad cultural que exista en tu
+            comunidad?
+          </mat-checkbox>
+          <mat-form-field>
+            <mat-label
+              >¿En qué tipo de actividad te gustaría participar?</mat-label
+            >
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <mat-select
+              formControlName="surveyCulturalActivity"
+              [compareWith]="compareById"
+            >
+              @for (a of culturalActivities(); track a.id) {
+                <mat-option [value]="a">{{ a.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Otra actividad cultural</mat-label>
+            <mat-icon
+              svgIcon="circle-user"
+              matPrefix
+            />
+            <input
+              matInput
+              formControlName="otherTypeCulturalActivity"
+              appUppercase
+            />
+          </mat-form-field>
+        </div>
+        <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+          <button
+            mat-flat-button
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="submit()"
+            [disabled]="saving() || !curpSuccessful()"
+          >
+            Actualizar información
+          </button>
+        </div>
+      </mat-step>
+    </mat-vertical-stepper>
+  </form>
+}

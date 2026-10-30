@@ -1,0 +1,205 @@
+<div class="flex flex-auto flex-col p-6 md:p-10">
+  <app-page-header
+    eyebrow="Resumen de censo"
+    [title]="'Folio ' + (survey()?.surveyUserFolio?.folio ?? '—')"
+  >
+    @if (canEdit) {
+      <button
+        actions
+        matButton="filled"
+        type="button"
+        (click)="edit()"
+      >
+        <mat-icon svgIcon="square-pen" />
+        Editar
+      </button>
+    }
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="back()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </app-page-header>
+
+  @if (loading()) {
+    <div class="mt-10 text-center text-neutral-500">Cargando censo…</div>
+  } @else if (survey(); as s) {
+    <!-- Datos generales -->
+    <div
+      class="mt-6 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+    >
+      <div class="font-bold">Datos generales</div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <p>
+          <span class="text-neutral-500">Dispositivo:</span> {{ s.deviceId }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Capturista:</span>
+          {{ s.surveyUser?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Fecha:</span>
+          {{ s.surveyDate | date: 'dd/MM/yyyy HH:mm' }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Actualización:</span>
+          {{ s.updated | date: 'dd/MM/yyyy HH:mm' }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Integrantes:</span>
+          {{ s.familyNumbers }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Domicilio -->
+    <div
+      class="mt-4 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+    >
+      <div class="font-bold">Domicilio</div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <p>
+          <span class="text-neutral-500">Municipio:</span> {{ s.municipality }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Localidad:</span>
+          {{ s.localityOther || s.locality }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Calle:</span> {{ s.street }}
+          {{ s.exteriorNumber }}
+        </p>
+        <p><span class="text-neutral-500">C.P.:</span> {{ s.postalCode }}</p>
+        <p class="sm:col-span-2 lg:col-span-3">
+          <span class="text-neutral-500">Referencia:</span> {{ s.reference }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Vivienda -->
+    <div
+      class="mt-4 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+    >
+      <div class="font-bold">Vivienda</div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <p>
+          <span class="text-neutral-500">Tipo:</span>
+          {{ s.surveyHousing?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Condición:</span>
+          {{ s.surveyHousingCondition?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Documento:</span>
+          {{ s.surveyHousingDocument?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Muros:</span>
+          {{ s.surveyHousingMaterialWall?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Techo:</span>
+          {{ s.surveyHousingMaterialRoof?.name }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Piso:</span>
+          {{ s.surveyHousingMaterialFloor?.name }}
+        </p>
+        <p class="sm:col-span-2 lg:col-span-3">
+          <span class="text-neutral-500">Servicios:</span>
+          {{
+            s.surveyHousingServicesEntities?.length
+              ? namesOf(s.surveyHousingServicesEntities)
+              : 'Sin servicios'
+          }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Actividad cultural -->
+    <div
+      class="mt-4 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+    >
+      <div class="font-bold">Actividad cultural</div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <p>
+          <span class="text-neutral-500">Participa:</span>
+          {{ s.culturalActivityParticipation }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Conoce:</span>
+          {{ s.knowledgeCulturalActivity }}
+        </p>
+        <p>
+          <span class="text-neutral-500">Actividad:</span>
+          {{ s.surveyCulturalActivity?.name || s.otherTypeCulturalActivity }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Integrantes -->
+    <div
+      class="mt-4 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <div class="p-4 font-bold">Integrantes de la familia</div>
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+          <tr>
+            <th class="p-3">Nombre</th>
+            <th class="p-3">CURP</th>
+            <th class="p-3">Sexo</th>
+            <th class="p-3">Nacimiento</th>
+            <th class="p-3">Teléfono</th>
+            <th class="p-3">Anexos</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of s.surveyPersonEntityList; track p.id) {
+            <tr class="border-t border-neutral-200 dark:border-neutral-800">
+              <td class="p-3">
+                {{ p.names }} {{ p.lastName }} {{ p.surName }}
+              </td>
+              <td class="p-3">{{ p.curp }}</td>
+              <td class="p-3">{{ p.gender }}</td>
+              <td class="p-3">{{ p.dateOfBirth }}</td>
+              <td class="p-3">{{ p.mobilePhone }}</td>
+              <td class="p-3">{{ p.surveyAnnex?.length ? 'Sí' : 'No' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (s.surveyPersonEntityList.length === 0) {
+        <div class="p-6 text-center text-neutral-500">
+          Sin integrantes registrados.
+        </div>
+      }
+    </div>
+
+    <!-- Imágenes -->
+    @if (images().length) {
+      <div
+        class="mt-4 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+      >
+        <div class="font-bold">Imágenes</div>
+        <div class="flex flex-wrap gap-4">
+          @for (img of images(); track $index) {
+            <img
+              [src]="img"
+              class="h-48 w-auto rounded-md border border-neutral-200 dark:border-neutral-700"
+              alt=""
+            />
+          }
+        </div>
+      </div>
+    }
+  } @else {
+    <div class="mt-10 text-center text-neutral-500">
+      No se pudo cargar el censo.
+    </div>
+  }
+</div>

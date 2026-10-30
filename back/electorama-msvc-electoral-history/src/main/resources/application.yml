@@ -1,0 +1,50 @@
+app:
+  config:
+    keycloak:
+      url: ${KEYCLOAK_URL:http://localhost:8080}
+      realm: ${KEYCLOAK_REALM:electorama-realm}
+
+spring:
+  jackson:
+    time-zone: America/Mexico_City
+    locale: es_MX
+  application:
+    name: electorama-msvc-electoral-history
+  datasource:
+    # El default es local a propósito: en el resto de los microservicios apunta a
+    # la base productiva y eso ya provocó escrituras accidentales.
+    url: jdbc:postgresql://${DB_HOST:localhost:5432}/${DB_DATABASE:electorama}?currentSchema=electoral_history,public
+    username: ${DB_USERNAME:electorama}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 600000
+      # El servicio sólo lee: los datos se cargan con los scripts de db/
+      read-only: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}
+
+server:
+  port: ${SERVER_PORT:9015}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!kubernetes"
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1

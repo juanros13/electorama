@@ -1,0 +1,441 @@
+<div class="flex flex-auto flex-col gap-6 p-6 md:p-10">
+  <app-page-header
+    eyebrow="Movilización"
+    title="Nuevas visitas"
+    subtitle="Captura de visitas casa por casa"
+  >
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="cancel()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </app-page-header>
+
+  <form
+    [formGroup]="form"
+    class="flex flex-col gap-6"
+  >
+    <!-- Información de la visita -->
+    <app-section-card heading="Información de visita">
+      <div
+        formGroupName="step1"
+        class="grid grid-cols-1 gap-4 md:grid-cols-3"
+      >
+        <mat-form-field>
+          <mat-label>Coordinador</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="user"
+          />
+          <mat-select
+            formControlName="coordinator"
+            [compareWith]="compareAuthId"
+            (selectionChange)="onCoordinatorChange($event.value)"
+          >
+            @for (c of coordinators(); track c.authId) {
+              <mat-option [value]="c">{{ c.firstName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Sección</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="map"
+          />
+          <mat-select
+            formControlName="section"
+            [compareWith]="compareSection"
+            (selectionChange)="onSectionChange($event.value)"
+          >
+            @for (s of sections(); track s.seccionGeoId) {
+              <mat-option [value]="s">{{ s.seccionNumber }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Municipio</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="building-2"
+          />
+          <mat-select
+            formControlName="municipality"
+            [compareWith]="compareById"
+          >
+            @for (m of municipalities(); track m.id) {
+              <mat-option [value]="m">{{ m.id }} - {{ m.nomMun }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Localidad</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="map-pin"
+          />
+          <mat-select
+            formControlName="locality"
+            [compareWith]="compareById"
+          >
+            @for (l of localities(); track l.id) {
+              <mat-option [value]="l"
+                >{{ l.id }} - {{ l.localidad }}</mat-option
+              >
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Fecha de visita</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="calendar-days"
+          />
+          <input
+            matInput
+            type="date"
+            formControlName="visitDate"
+            [min]="minDate"
+            [max]="today"
+          />
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Usuario</mat-label>
+          <mat-icon
+            matPrefix
+            svgIcon="id-card"
+          />
+          <input
+            matInput
+            formControlName="user"
+          />
+        </mat-form-field>
+      </div>
+    </app-section-card>
+
+    <!-- Registro de personas visitadas -->
+    <app-section-card heading="Registro de visitas">
+      <div
+        formArrayName="step2"
+        class="flex flex-col gap-6"
+      >
+        @for (person of people; track person; let i = $index) {
+          <div
+            [formGroupName]="i"
+            [class.border-t]="i > 0"
+            [class.border-neutral-200]="i > 0"
+            [class.pt-6]="i > 0"
+            [class.dark:border-neutral-800]="i > 0"
+          >
+            <div class="flex items-center justify-between">
+              <div class="font-display text-lg font-bold">
+                Visitado #{{ i + 1 }}
+              </div>
+              @if (people.length > 1) {
+                <button
+                  matIconButton
+                  type="button"
+                  (click)="removePerson(i)"
+                >
+                  <mat-icon
+                    class="text-red-500"
+                    svgIcon="trash-2"
+                  />
+                </button>
+              }
+            </div>
+
+            <div class="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <!-- Domicilio + ubicación -->
+              <div class="grid gap-4">
+                <mat-slide-toggle
+                  color="primary"
+                  formControlName="letOpenDoor"
+                  (change)="onOpenDoorToggle(i, $event.checked)"
+                >
+                  ¿Abrieron la puerta?
+                </mat-slide-toggle>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <mat-form-field>
+                    <mat-label>Calle</mat-label>
+                    <input
+                      matInput
+                      formControlName="calle"
+                      appUppercase
+                      maxlength="150"
+                    />
+                    @if (person.get('calle')!.hasError('required')) {
+                      <mat-error>La calle es obligatoria.</mat-error>
+                    }
+                    @if (person.get('calle')!.hasError('pattern')) {
+                      <mat-error>Solo letras.</mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field>
+                    <mat-label>Número</mat-label>
+                    <input
+                      matInput
+                      formControlName="numero"
+                      appUppercase
+                      maxlength="150"
+                    />
+                    @if (person.get('numero')!.hasError('required')) {
+                      <mat-error>El número es obligatorio.</mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field>
+                    <mat-label>Latitud</mat-label>
+                    <input
+                      matInput
+                      formControlName="latitude"
+                      readonly
+                    />
+                    @if (person.get('latitude')!.invalid) {
+                      <mat-hint class="text-red-500"
+                        >Selecciona un punto en el mapa.</mat-hint
+                      >
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field>
+                    <mat-label>Longitud</mat-label>
+                    <input
+                      matInput
+                      formControlName="longitude"
+                      readonly
+                    />
+                  </mat-form-field>
+                </div>
+              </div>
+
+              <!-- Mapa -->
+              <app-visit-location-map
+                [municipalities]="municipalitiesGeoJson()"
+                [section]="sectionGeoJson()"
+                (locationChange)="onLocation(i, $event)"
+              />
+            </div>
+
+            <!-- Datos si abrieron la puerta -->
+            @if (person.get('letOpenDoor')!.value) {
+              <hr class="my-4 border-neutral-200 dark:border-neutral-800" />
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <mat-slide-toggle
+                  class="self-center md:col-span-1"
+                  color="primary"
+                  formControlName="acceptAditionalInformation"
+                  (change)="onAcceptInfoToggle(i, $event.checked)"
+                >
+                  ¿Acepta más información?
+                </mat-slide-toggle>
+
+                <mat-form-field>
+                  <mat-label>Sexo</mat-label>
+                  <mat-select formControlName="sex">
+                    @for (s of sexos; track s.value) {
+                      <mat-option [value]="s.value">{{
+                        s.viewValue
+                      }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field>
+                  <mat-label>Edad</mat-label>
+                  <input
+                    matInput
+                    formControlName="age"
+                    maxlength="3"
+                    inputmode="numeric"
+                  />
+                  @if (person.get('age')!.hasError('required')) {
+                    <mat-error>La edad es obligatoria.</mat-error>
+                  }
+                  @if (person.get('age')!.hasError('pattern')) {
+                    <mat-error>Mayor de edad hasta 110.</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field>
+                  <mat-label>¿Es afín?</mat-label>
+                  <mat-select formControlName="isRelated">
+                    @for (r of related; track r.value) {
+                      <mat-option [value]="r.value">{{
+                        r.viewValue
+                      }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              </div>
+
+              <!-- Datos si acepta más información -->
+              @if (person.get('acceptAditionalInformation')!.value) {
+                <hr class="my-4 border-neutral-200 dark:border-neutral-800" />
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <mat-form-field>
+                    <mat-label>Nombre</mat-label>
+                    <input
+                      matInput
+                      formControlName="name"
+                      appUppercase
+                      maxlength="150"
+                    />
+                    @if (person.get('name')!.hasError('required')) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                    @if (person.get('name')!.hasError('pattern')) {
+                      <mat-error>Solo letras.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Apellido paterno</mat-label>
+                    <input
+                      matInput
+                      formControlName="fatherlastname"
+                      appUppercase
+                      maxlength="150"
+                    />
+                    @if (person.get('fatherlastname')!.hasError('required')) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Apellido materno</mat-label>
+                    <input
+                      matInput
+                      formControlName="motherlastname"
+                      appUppercase
+                      maxlength="150"
+                    />
+                    @if (person.get('motherlastname')!.hasError('required')) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Celular</mat-label>
+                    <span matTextPrefix>+52&nbsp;</span>
+                    <input
+                      matInput
+                      formControlName="phone"
+                      maxlength="10"
+                      inputmode="tel"
+                    />
+                    @if (person.get('phone')!.hasError('required')) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                    @if (person.get('phone')!.hasError('pattern')) {
+                      <mat-error>10 dígitos.</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-2">
+        <button
+          matButton="tonal"
+          type="button"
+          (click)="addPerson(1)"
+        >
+          <mat-icon svgIcon="plus" />
+          Agregar visita
+        </button>
+        <button
+          matButton="tonal"
+          type="button"
+          (click)="addPerson(5)"
+        >
+          +5
+        </button>
+        <button
+          matButton="tonal"
+          type="button"
+          (click)="addPerson(10)"
+        >
+          +10
+        </button>
+      </div>
+    </app-section-card>
+
+    <!-- Resumen -->
+    <app-section-card heading="Resumen">
+      <p class="mb-3 font-medium">
+        {{ people.length }} registro(s) capturado(s).
+      </p>
+      <div
+        class="overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+      >
+        <table class="w-full text-sm">
+          <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+            <tr>
+              <th class="p-2">Calle</th>
+              <th class="p-2">Número</th>
+              <th class="p-2">Abrió</th>
+              <th class="p-2">Afín</th>
+              <th class="p-2">Edad</th>
+              <th class="p-2">Nombre</th>
+              <th class="p-2">Celular</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (person of people; track person) {
+              <tr class="border-t border-neutral-200 dark:border-neutral-800">
+                <td class="p-2">{{ person.get('calle')!.value }}</td>
+                <td class="p-2">{{ person.get('numero')!.value }}</td>
+                <td class="p-2">
+                  {{ person.get('letOpenDoor')!.value ? 'SÍ' : 'NO' }}
+                </td>
+                <td class="p-2">
+                  @if (person.get('letOpenDoor')!.value) {
+                    {{ person.get('isRelated')!.value ? 'SÍ' : 'NO' }}
+                  }
+                </td>
+                <td class="p-2">{{ person.get('age')!.value }}</td>
+                <td class="p-2">
+                  {{ person.get('name')!.value }}
+                  {{ person.get('fatherlastname')!.value }}
+                  {{ person.get('motherlastname')!.value }}
+                </td>
+                <td class="p-2">{{ person.get('phone')!.value }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </app-section-card>
+
+    <!-- Acciones -->
+    <div class="flex justify-end gap-3">
+      <button
+        matButton
+        type="button"
+        (click)="cancel()"
+      >
+        Cancelar
+      </button>
+      <button
+        matButton="filled"
+        type="button"
+        [disabled]="form.invalid || saving()"
+        (click)="save()"
+      >
+        {{ saving() ? 'Guardando…' : 'Finalizar' }}
+      </button>
+    </div>
+  </form>
+</div>

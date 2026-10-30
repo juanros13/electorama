@@ -1,0 +1,245 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Estructura"
+    title="Nuevo simpatizante"
+    subtitle="Alta de simpatizante en una sección"
+  >
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="cancel()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar al listado
+    </button>
+  </app-page-header>
+
+  <form
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    class="flex max-w-3xl flex-col gap-6"
+  >
+    <!-- Asignación -->
+    <app-section-card heading="Asignación">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field>
+          <mat-label>Sección</mat-label>
+          <mat-select
+            formControlName="section"
+            [compareWith]="compareById"
+            (selectionChange)="onSectionChange($event.value)"
+          >
+            @for (s of sections(); track s.id) {
+              <mat-option [value]="s">Sección {{ s.seccionNumber }}</mat-option>
+            }
+          </mat-select>
+          <mat-error>Requerido</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Movilizador</mat-label>
+          <mat-select formControlName="promoter">
+            @for (p of promotersList(); track p.promoterAuthId) {
+              <mat-option [value]="p"
+                >{{ p.names }} {{ p.lastName }} {{ p.surName }}</mat-option
+              >
+            }
+          </mat-select>
+          <mat-error>Requerido</mat-error>
+        </mat-form-field>
+      </div>
+    </app-section-card>
+
+    <!-- Datos personales -->
+    <app-section-card heading="Datos personales">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field>
+          <mat-label>Nombre(s)</mat-label>
+          <input
+            matInput
+            formControlName="names"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido paterno</mat-label>
+          <input
+            matInput
+            formControlName="lastName"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido materno</mat-label>
+          <input
+            matInput
+            formControlName="surName"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>CURP</mat-label>
+          <input
+            matInput
+            formControlName="curp"
+            appUppercase
+          />
+          <mat-hint>Autocompleta sexo y fecha</mat-hint>
+          <mat-error>CURP no válido</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Clave de elector (INE)</mat-label>
+          <input
+            matInput
+            formControlName="ine"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Vigencia INE (año)</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="validity"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Sexo</mat-label>
+          <mat-select formControlName="sex">
+            @for (s of sexOptions; track s) {
+              <mat-option [value]="s">{{ s }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Fecha de nacimiento</mat-label>
+          <input
+            matInput
+            type="date"
+            formControlName="birthdate"
+          />
+        </mat-form-field>
+      </div>
+    </app-section-card>
+
+    <!-- Contacto -->
+    <app-section-card heading="Contacto">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field>
+          <mat-label>Estado civil</mat-label>
+          <mat-select
+            formControlName="maritalStatus"
+            [compareWith]="compareById"
+          >
+            @for (m of maritalStatus(); track m.id) {
+              <mat-option [value]="m">{{ m.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Rol familiar</mat-label>
+          <mat-select
+            formControlName="familyRole"
+            [compareWith]="compareById"
+          >
+            @for (f of familyRole(); track f.id) {
+              <mat-option [value]="f">{{ f.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Teléfono celular</mat-label>
+          <input
+            matInput
+            formControlName="cellPhoneNumber"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>¿Tiene WhatsApp?</mat-label>
+          <mat-select formControlName="supportWhatsapp">
+            <mat-option value="SI">Sí</mat-option>
+            <mat-option value="NO">No</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Otro teléfono</mat-label>
+          <input
+            matInput
+            formControlName="otherCellPhone"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Correo electrónico</mat-label>
+          <input
+            matInput
+            formControlName="email"
+          />
+        </mat-form-field>
+      </div>
+    </app-section-card>
+
+    <!-- Dirección -->
+    <app-section-card heading="Dirección">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Calle</mat-label>
+          <input
+            matInput
+            formControlName="street"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Número exterior</mat-label>
+          <input
+            matInput
+            formControlName="numberExt"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Número interior</mat-label>
+          <input
+            matInput
+            formControlName="numberInter"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Municipio</mat-label>
+          <mat-select formControlName="municipalityId">
+            @for (m of municipalities(); track m.id) {
+              <mat-option [value]="m.id">{{ m.nomMun }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Colonia</mat-label>
+          <input
+            matInput
+            formControlName="cologne"
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Código postal</mat-label>
+          <input
+            matInput
+            formControlName="postalCode"
+          />
+        </mat-form-field>
+      </div>
+    </app-section-card>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-3">
+      <button
+        matButton
+        type="button"
+        (click)="cancel()"
+      >
+        Cancelar
+      </button>
+      <button
+        matButton="filled"
+        type="submit"
+        [disabled]="form.invalid || saving()"
+      >
+        {{ saving() ? 'Guardando…' : 'Registrar simpatizante' }}
+      </button>
+    </div>
+  </form>
+</div>

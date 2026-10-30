@@ -1,0 +1,240 @@
+@let p = position();
+
+@if (hasActions()) {
+<div class="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+  <div class="text-2xs font-semibold tracking-widest text-neutral-500 uppercase">
+    {{ canBuild() ? 'Armar' : 'Nombrar' }}
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    @if (canBuild() && childLevel()) {
+      <button matButton="outlined" [disabled]="busy()" (click)="open('addChild')">
+        <mat-icon svgIcon="plus" class="icon-size-4" /> Agregar {{ childLabel() }}
+      </button>
+    }
+    @if (canBuild() && p.level === 'REFERENT') {
+      <button matButton="outlined" [disabled]="busy()" (click)="open('vacancies')">
+        <mat-icon svgIcon="layers" class="icon-size-4" /> Generar vacantes del municipio
+      </button>
+    }
+    @if (canBuild() && p.level === 'ZONE_COORDINATOR' && mobilizersMissing()) {
+      <button matButton="outlined" [disabled]="busy()" (click)="completeMobilizers()">
+        <mat-icon svgIcon="layers" class="icon-size-4" /> Completar movilizadores (faltan {{ mobilizersMissing() }})
+      </button>
+    }
+    @if (canAppoint()) {
+      <button matButton="filled" [disabled]="busy()" (click)="open('appoint')">
+        <mat-icon svgIcon="user-plus" class="icon-size-4" />
+        {{ p.holderName ? 'Cambiar titular' : 'Nombrar titular' }}
+      </button>
+    }
+    @if (canVacate()) {
+      <button matButton [disabled]="busy()" (click)="vacate()">Dejar vacante</button>
+    }
+    @if (canBuild() && !p.childCount) {
+      <button matButton class="!text-red-600" [disabled]="busy()" (click)="close()">Cerrar puesto</button>
+    }
+  </div>
+
+  <!-- ─────────── agregar un puesto debajo ─────────── -->
+  @if (panel() === 'addChild') {
+    <div class="flex flex-wrap items-end gap-3 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900/40">
+      @if (p.level === 'REFERENT') {
+        <label class="flex min-w-56 flex-1 flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase">Sección</span>
+          <select
+            class="rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+            (change)="newSection.set(+$any($event.target).value || null)"
+          >
+            <option value="">{{ sectionsLoading() ? 'Cargando…' : 'Elige una sección' }}</option>
+            @for (s of sections(); track s.sectionGeoId) {
+              <option [value]="s.sectionGeoId">
+                {{ s.section }} · meta {{ s.meta | number }} · tiene {{ s.existing }} de {{ s.needed }}
+              </option>
+            }
+          </select>
+        </label>
+      }
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Meta</span>
+        <input
+          type="number"
+          min="0"
+          class="w-28 rounded-lg border border-neutral-200 px-3 py-2 text-sm tabular-nums dark:border-neutral-800 dark:bg-transparent"
+          [ngModel]="newGoal()"
+          (ngModelChange)="newGoal.set($event === '' ? null : +$event)"
+        />
+      </label>
+      <button matButton="filled" [disabled]="busy()" (click)="addChild()">Crear {{ childLabel() }}</button>
+    </div>
+  }
+
+  <!-- ─────────── vacantes del municipio ─────────── -->
+  @if (panel() === 'vacancies') {
+    <div class="flex flex-col gap-2 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900/40">
+      <p class="text-xs text-neutral-600 dark:text-neutral-400">
+        Un promotor por cada 200 de meta 2027 en cada sección del municipio. Sólo se crean los que faltan; quedan
+        vacantes para nombrar después.
+      </p>
+      @if (sectionsLoading()) {
+        <div class="h-0.5 animate-pulse bg-primary-500"></div>
+      } @else {
+        <div class="max-h-64 overflow-auto rounded border border-neutral-200 bg-card dark:border-neutral-800">
+          <table class="w-full text-xs">
+            <thead class="sticky top-0 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase">
+              <tr>
+                <th class="px-2 py-1.5">Sección</th>
+                <th class="px-2 py-1.5 text-right">Meta</th>
+                <th class="px-2 py-1.5 text-right">Pide</th>
+                <th class="px-2 py-1.5 text-right">Tiene</th>
+                <th class="px-2 py-1.5 text-right">Faltan</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of sections(); track s.sectionGeoId) {
+                <tr class="border-t border-neutral-100 dark:border-neutral-800/60">
+                  <td class="px-2 py-1 tabular-nums">{{ s.section }}</td>
+                  <td class="px-2 py-1 text-right tabular-nums">{{ s.meta | number }}</td>
+                  <td class="px-2 py-1 text-right tabular-nums">{{ s.needed }}</td>
+                  <td class="px-2 py-1 text-right tabular-nums">{{ s.existing }}</td>
+                  <td class="px-2 py-1 text-right font-semibold tabular-nums" [class.text-neutral-400]="s.needed <= s.existing">
+                    {{ s.needed > s.existing ? s.needed - s.existing : 0 }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm">Faltan <b class="tabular-nums">{{ missingTotal() | number }}</b> promotores en {{ sections().length }} secciones</span>
+          <button matButton="filled" [disabled]="busy() || !missingTotal()" (click)="generateForMunicipality()">Crear vacantes</button>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ─────────── nombrar titular ─────────── -->
+  @if (panel() === 'appoint') {
+    <div class="flex flex-col gap-3 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900/40">
+      <!-- buscar a alguien que ya está en el padrón (incluye la gente de 2024) -->
+      <div class="flex items-end gap-2">
+        <label class="flex flex-1 flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase">Buscar por CURP o nombre</span>
+          <input
+            class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+            placeholder="CURP completa o al menos 3 letras del nombre"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+            (keydown.enter)="search()"
+          />
+        </label>
+        <button matButton="outlined" [disabled]="searching() || query().trim().length < 3" (click)="search()">Buscar</button>
+      </div>
+      @if (found().length) {
+        <div class="flex flex-col divide-y divide-neutral-200 rounded border border-neutral-200 bg-card dark:divide-neutral-800 dark:border-neutral-800">
+          @for (f of found(); track f.id) {
+            <button
+              type="button"
+              class="flex items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              [class.bg-primary-50]="chosen()?.id === f.id"
+              (click)="choose(chosen()?.id === f.id ? null : f)"
+            >
+              <span>
+                {{ f.names }} {{ f.lastName }} {{ f.surName }}
+                <span class="block text-2xs text-neutral-500">{{ f.curp ?? 'sin CURP' }} · {{ f.email ?? 'sin correo' }}</span>
+              </span>
+              @if (chosen()?.id === f.id) { <mat-icon svgIcon="check" class="text-primary-600 icon-size-4" /> }
+            </button>
+          }
+        </div>
+      }
+
+      @if (!chosen()) {
+        <div class="text-2xs tracking-wider text-neutral-500 uppercase">O una persona nueva</div>
+        <div class="grid grid-cols-2 gap-2">
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Nombre(s)" [ngModel]="person().names" (ngModelChange)="setPerson('names', $event)" />
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Primer apellido" [ngModel]="person().lastName" (ngModelChange)="setPerson('lastName', $event)" />
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Segundo apellido" [ngModel]="person().surName" (ngModelChange)="setPerson('surName', $event)" />
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm uppercase dark:border-neutral-800 dark:bg-transparent" placeholder="CURP" [ngModel]="person().curp" (ngModelChange)="setPerson('curp', $event)" />
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Teléfono" [ngModel]="person().phone" (ngModelChange)="setPerson('phone', $event)" />
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Correo" [ngModel]="person().email" (ngModelChange)="setPerson('email', $event)" />
+        </div>
+      }
+
+      <!-- la cuenta con la que entrará a la app -->
+      <div class="flex flex-col gap-2">
+        <div class="text-2xs tracking-wider text-neutral-500 uppercase">Cuenta para entrar a la app</div>
+        <div class="flex flex-wrap gap-4 text-sm">
+          <label class="inline-flex items-center gap-1.5"><input type="radio" name="mode" [checked]="accountMode() === 'CREATE'" (change)="accountMode.set('CREATE')" /> Crear cuenta</label>
+          <label class="inline-flex items-center gap-1.5"><input type="radio" name="mode" [checked]="accountMode() === 'LINK'" (change)="accountMode.set('LINK')" /> Ligar una existente</label>
+          <label class="inline-flex items-center gap-1.5"><input type="radio" name="mode" [checked]="accountMode() === 'NONE'" (change)="accountMode.set('NONE')" /> Sin cuenta por ahora</label>
+        </div>
+        @if (accountMode() === 'CREATE') {
+          <div class="grid grid-cols-2 gap-2">
+            <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" type="email" placeholder="Correo (es su usuario)" [ngModel]="accountEmail()" (ngModelChange)="editAccountEmail($event)" />
+            <div class="flex gap-1.5">
+              <div class="relative min-w-0 flex-1">
+                <input
+                  class="w-full rounded-lg border border-neutral-200 py-2 pr-9 pl-3 font-mono text-sm dark:border-neutral-800 dark:bg-transparent"
+                  [type]="showAccountPassword() ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="Contraseña (mín. 8)"
+                  [ngModel]="accountPassword()"
+                  (ngModelChange)="accountPassword.set($event)"
+                />
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-neutral-400 hover:text-neutral-600"
+                  [attr.aria-label]="showAccountPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                  (click)="showAccountPassword.set(!showAccountPassword())"
+                >
+                  <mat-icon [svgIcon]="showAccountPassword() ? 'eye-off' : 'eye'" class="icon-size-4" />
+                </button>
+              </div>
+              <button matButton="outlined" type="button" (click)="generateAccountPassword()">Generar</button>
+            </div>
+          </div>
+          @if (accountEmail() && accountPassword().length >= 8) {
+            <p class="text-2xs text-emerald-700 dark:text-emerald-400">
+              Entrará con <span class="font-medium">{{ accountEmail() }}</span>; anota la contraseña para dársela.
+            </p>
+          }
+          <p class="text-2xs text-neutral-500">Se crea en Keycloak con el rol de su nivel ({{ levels[p.level].one }}).</p>
+        }
+        @if (accountMode() === 'LINK') {
+          <input class="rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs dark:border-neutral-800 dark:bg-transparent" placeholder="Id de la cuenta (authId)" [ngModel]="linkAuthId()" (ngModelChange)="linkAuthId.set($event)" />
+        }
+      </div>
+
+      @if (existingAccount()) {
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          <span>Ya existe una cuenta con ese correo. ¿Nombrarlo con esa cuenta?</span>
+          <button matButton="filled" [disabled]="busy()" (click)="linkExisting()">Ligar esa cuenta</button>
+        </div>
+      }
+
+      @if (p.level === 'ZONE_COORDINATOR' && sectionSeats().length) {
+        <label
+          class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors"
+          [class]="wholeSection() ? 'border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+        >
+          <input type="checkbox" class="mt-0.5 size-4 accent-emerald-600" [ngModel]="wholeSection()" (ngModelChange)="wholeSection.set($event)" />
+          <span class="flex flex-col gap-0.5">
+            <span class="font-medium">Ocupar toda la sección</span>
+            <span class="text-xs text-neutral-500">
+              También queda como titular de {{ sectionSeats().length }} puesto(s) vacante(s) de la sección
+              ({{ sectionSeatsLabel() }}) y lleva su meta completa: +{{ sectionSeatsGoal() | number }}.
+            </span>
+          </span>
+        </label>
+      }
+
+      <div class="flex justify-end">
+        <button matButton="filled" [disabled]="busy()" (click)="appoint()">
+          {{ busy() ? 'Guardando…' : 'Nombrar' }}
+        </button>
+      </div>
+    </div>
+  }
+</div>
+}

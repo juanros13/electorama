@@ -1,0 +1,129 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Defensa del voto"
+    title="Apertura de casillas"
+    subtitle="Avance de instalación (actualiza cada minuto)"
+  >
+    @if (loading()) {
+      <span
+        actions
+        class="text-sm text-neutral-400"
+        >Actualizando…</span
+      >
+    }
+  </app-page-header>
+
+  <!-- Totales -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Casillas abiertas</div>
+      <div class="text-3xl font-bold text-emerald-600">
+        {{ open() | number }}
+      </div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">Casillas cerradas / pendientes</div>
+      <div class="text-3xl font-bold text-red-600">{{ close() | number }}</div>
+    </div>
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="text-sm text-neutral-500">% de apertura</div>
+      <div class="text-3xl font-bold text-secondary-600">
+        {{ percent() | percent: '1.0-1' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Por municipio -->
+  <div class="mt-8">
+    <div class="text-lg font-semibold">Por municipio</div>
+    <div
+      class="mt-3 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-900">
+          <tr>
+            <th class="px-4 py-2">Municipio</th>
+            <th class="px-4 py-2 text-right">Abiertas</th>
+            <th class="px-4 py-2 text-right">Cerradas</th>
+            <th class="px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of municipalities(); track row.municipalityId) {
+            <tr class="border-t border-neutral-100 dark:border-neutral-800">
+              <td class="px-4 py-2">{{ row.municipalityName }}</td>
+              <td class="px-4 py-2 text-right text-emerald-600">
+                {{ row.totalPollingBoothsOpened | number }}
+              </td>
+              <td class="px-4 py-2 text-right text-red-600">
+                {{ row.totalPollingBoothsClosed | number }}
+              </td>
+              <td class="px-4 py-2 text-right font-semibold">
+                {{ row.total | number }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="px-4 py-6 text-center text-neutral-500"
+                colspan="4"
+              >
+                Sin datos.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Por distrito federal -->
+  <div class="mt-8">
+    <div class="text-lg font-semibold">Por distrito federal</div>
+    <div
+      class="mt-3 overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+    >
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-left dark:bg-neutral-900">
+          <tr>
+            <th class="px-4 py-2">Distrito</th>
+            <th class="px-4 py-2 text-right">Abiertas</th>
+            <th class="px-4 py-2 text-right">Cerradas</th>
+            <th class="px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of federal(); track row.id) {
+            <tr class="border-t border-neutral-100 dark:border-neutral-800">
+              <td class="px-4 py-2">{{ row.federalDistrictName }}</td>
+              <td class="px-4 py-2 text-right text-emerald-600">
+                {{ row.totalPollingBoothsOpened | number }}
+              </td>
+              <td class="px-4 py-2 text-right text-red-600">
+                {{ row.totalPollingBoothsClosed | number }}
+              </td>
+              <td class="px-4 py-2 text-right font-semibold">
+                {{ row.total | number }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="px-4 py-6 text-center text-neutral-500"
+                colspan="4"
+              >
+                Sin datos.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

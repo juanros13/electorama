@@ -1,0 +1,132 @@
+<div class="flex flex-auto flex-col p-6">
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <button
+      matIconButton
+      (click)="cancel()"
+      aria-label="Volver"
+    >
+      <mat-icon svgIcon="arrow-left" />
+    </button>
+    <div>
+      <div class="text-3xl font-bold tracking-tight">
+        Nuevo promotor
+      </div>
+      <div class="text-neutral-500">
+        Alta de promotor y asignación de secciones
+      </div>
+    </div>
+  </div>
+
+  <form
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    class="mt-6 flex max-w-2xl flex-col gap-6"
+  >
+    <!-- Datos -->
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="mb-3 font-semibold">Datos del promotor</div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field>
+          <mat-label>Nombre(s)</mat-label>
+          <input
+            matInput
+            formControlName="firstName"
+          />
+          <mat-error>Requerido</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellidos</mat-label>
+          <input
+            matInput
+            formControlName="lastName"
+          />
+          <mat-error>Requerido</mat-error>
+        </mat-form-field>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Correo electrónico</mat-label>
+          <input
+            matInput
+            formControlName="email"
+          />
+          <mat-error>Correo no válido</mat-error>
+        </mat-form-field>
+      </div>
+    </div>
+
+    <!-- Acceso -->
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="mb-3 font-semibold">Acceso al sistema</div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <mat-form-field>
+          <mat-label>Contraseña</mat-label>
+          <input
+            matInput
+            type="password"
+            formControlName="password"
+          />
+          <mat-hint>Mín. 8, con mayúscula, minúscula y número</mat-hint>
+          <mat-error>Contraseña no válida</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Confirmar contraseña</mat-label>
+          <input
+            matInput
+            type="password"
+            formControlName="confirmPassword"
+          />
+          <mat-error>Requerido</mat-error>
+        </mat-form-field>
+      </div>
+      @if (
+        form.hasError('passwordMismatch') &&
+        form.get('confirmPassword')?.touched
+      ) {
+        <div class="mt-1 text-sm text-red-600">
+          Las contraseñas no coinciden.
+        </div>
+      }
+    </div>
+
+    <!-- Secciones -->
+    <div
+      class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+    >
+      <div class="mb-3 font-semibold">Secciones asignadas</div>
+      <mat-form-field class="w-full">
+        <mat-label>Secciones</mat-label>
+        <mat-select
+          formControlName="sections"
+          multiple
+        >
+          @for (s of sections(); track s.id) {
+            <mat-option [value]="s">Sección {{ s.seccionNumber }}</mat-option>
+          }
+        </mat-select>
+        <mat-error>Selecciona al menos una sección</mat-error>
+      </mat-form-field>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-3">
+      <button
+        matButton
+        type="button"
+        (click)="cancel()"
+      >
+        Cancelar
+      </button>
+      <button
+        matButton="filled"
+        type="submit"
+        [disabled]="form.invalid || saving()"
+      >
+        {{ saving() ? 'Guardando…' : 'Registrar promotor' }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,70 @@
+<div class="flex flex-auto flex-col p-6">
+  <!-- Header -->
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div>
+      <div class="text-sm text-neutral-500">Censos por servidor</div>
+      <div class="text-3xl font-bold tracking-tight">
+        {{ report()?.name ?? '—' }}
+      </div>
+      @if (report()?.municipalityName) {
+        <div class="text-neutral-500">{{ report()!.municipalityName }}</div>
+      }
+    </div>
+    <button
+      matButton="outlined"
+      type="button"
+      (click)="back()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <app-table-shell
+    class="mt-6"
+    [loading]="loading()"
+  >
+    <table class="w-full text-sm">
+      <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+        <tr>
+          <th class="p-3">#</th>
+          <th class="p-3">Folio</th>
+          <th class="p-3">Fecha</th>
+          <th class="p-3 text-right">Sección</th>
+          <th class="p-3 text-center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of report()?.survey || []; track s.id; let i = $index) {
+          <tr class="border-t border-neutral-200 dark:border-neutral-800">
+            <td class="p-3">{{ i + 1 }}</td>
+            <td class="p-3">{{ s.surveyUserFolio?.folio ?? s.folioHouse }}</td>
+            <td class="p-3">{{ s.surveyDate | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <td class="p-3 text-right">{{ s.sectionNumber }}</td>
+            <td class="p-3 text-center">
+              <button
+                matIconButton
+                matTooltip="Ver resumen"
+                (click)="viewSummary(s)"
+              >
+                <mat-icon
+                  class="text-secondary-600"
+                  svgIcon="eye"
+                />
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (!loading() && (report()?.survey || []).length === 0) {
+      <div class="p-8 text-center text-neutral-500">
+        Este servidor no tiene censos capturados.
+      </div>
+    }
+  </app-table-shell>
+</div>

@@ -1,0 +1,76 @@
+app:
+  config:
+    keycloak:
+      server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8080}
+      realm: ${KEYCLOAK_REALM:electorama-realm}
+      clientId: ${KEYCLOAK_ADMIN_CLIENT_ID:admin-cli}
+      # Secretos: NO versionar. Inyectar por Secret de k8s / variable de entorno. ROTAR (estaban en git).
+      user: ${KEYCLOAK_ADMIN_USER:admin}
+      pass: ${KEYCLOAK_ADMIN_PASSWORD:}
+  security:
+    # Si true, exige que el header X-Auth-Id coincida con el UUID del token (evita suplantación).
+    # Poner en false temporalmente solo para diagnosticar si rompe algún flujo legítimo.
+    validate-auth-id: ${VALIDATE_AUTH_ID:true}
+
+spring:
+  profiles:
+    active: kubernetes
+  application:
+    name: electorama-msvc-users
+server:
+  port: 8001
+
+
+# Solo health/info expuestos; el resto (env, configprops, etc.) no debe ser público.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+---
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost:5432}/${DB_DATABASE:electorama}?currentSchema=users,public
+    username: ${DB_USERNAME:electorama}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 600000
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: users
+        format_sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/electorama-realm}
+---
+spring:
+  datasource:
+    hikari:
+      # local: pocas conexiones; minimum-idle no puede pasar del máximo
+      maximum-pool-size: 3
+      minimum-idle: 1
+  config:
+    activate:
+      on-profile: "!kubernetes"
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+
+
+
+
+

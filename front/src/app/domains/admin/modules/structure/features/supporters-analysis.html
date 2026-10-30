@@ -1,0 +1,444 @@
+@let t = totals();
+@let c = campaign();
+
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    [eyebrow]="'Análisis · ' + (c?.name ?? 'campaña 2024') + ' · sólo consulta'"
+    title="Simpatizantes 2024"
+    subtitle="Los convencidos de la campaña cerrada contra el resultado oficial de su elección. No cuentan para 2027: se usan para aprender."
+  />
+
+  <!-- pestañas -->
+  <div class="-mb-2 flex flex-wrap gap-1 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
+    @for (x of tabs; track x.value) {
+      <button
+        type="button"
+        role="tab"
+        class="-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors"
+        [class]="
+          tab() === x.value
+            ? 'border-primary-600 font-semibold text-primary-700 dark:text-primary-300'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+        "
+        [attr.aria-selected]="tab() === x.value"
+        (click)="tab.set(x.value)"
+      >
+        <mat-icon [svgIcon]="x.icon" class="icon-size-4" />
+        {{ x.label }}
+      </button>
+    }
+  </div>
+
+  @switch (tab()) {
+    <!-- ════════════════════ convencidos contra votos ════════════════════ -->
+    @case ('votes') {
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <app-stat-card label="Convencidos 2024" [value]="loading() ? null : t.supporters" icon="heart-handshake" accent="primary" />
+        <app-stat-card label="Votos 4T · gubernatura" [value]="loading() ? null : t.votes4t" icon="vote" accent="secondary" />
+        <app-stat-card
+          label="Conversión (votos 4T / convencidos)"
+          [value]="loading() || t.conversion == null ? null : (t.conversion | number: '1.1-1') + ' %'"
+          icon="scale"
+          accent="emerald"
+        />
+        <app-stat-card label="Secciones con más convencidos que votos 4T" [value]="loading() ? null : t.inflated" icon="triangle-alert" accent="amber" />
+        <app-stat-card label="Ayuntamiento perdido con cobertura ≥ 30 %" [value]="loading() ? null : t.lostWithStructure" icon="flag" accent="red" />
+      </div>
+      <p class="-mt-3 text-xs text-neutral-500">
+        Convencidos de las estructuras principal ({{ t.main | number }}) y alterna ({{ t.alternate | number }}), por su
+        sección de residencia. Votos 4T: MORENA, PT y PVEM en la gubernatura 2024 (cómputo oficial del IEPCT), la
+        elección donde la marca llegó completa. Conversión menor a 100 %: hubo más convencidos que votos.
+      </p>
+
+      <!-- por municipio -->
+      <app-table-shell [loading]="loading()" [empty]="!loading() && !byMunicipality().length">
+        <table class="w-full min-w-[56rem] text-sm">
+          <thead class="sticky top-0 border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800">
+            <tr>
+              <th class="py-2.5 pr-2 pl-4 font-semibold">Municipio</th>
+              <th class="px-2 py-2.5 text-right font-semibold">Convencidos</th>
+              <th class="px-2 py-2.5 text-right font-semibold">Votos 4T</th>
+              <th class="px-2 py-2.5 font-semibold">Conversión</th>
+              <th class="px-2 py-2.5 text-right font-semibold" title="Convencidos / lista nominal 2024">Cobertura LN</th>
+              <th class="py-2.5 pr-4 pl-2 text-right font-semibold" title="Secciones con más convencidos que votos 4T">Secc. infladas</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of byMunicipality(); track m.name) {
+              <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
+                <td class="py-2 pr-2 pl-4 font-medium">{{ m.name }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.supporters | number }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.votes4t | number }}</td>
+                <td class="px-2 py-2">
+                  <div class="flex items-center gap-2">
+                    <div class="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      <div
+                        class="h-full rounded-full"
+                        [class]="(m.conversion ?? 0) >= 100 ? 'bg-emerald-500' : (m.conversion ?? 0) >= 80 ? 'bg-amber-400' : 'bg-red-500'"
+                        [style.width.%]="(m.conversion ?? 0) > 100 ? 100 : m.conversion"
+                      ></div>
+                    </div>
+                    <span class="text-xs tabular-nums">{{ m.conversion | number: '1.0-0' }} %</span>
+                  </div>
+                </td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.coverage | number: '1.1-1' }} %</td>
+                <td class="py-2 pr-4 pl-2 text-right tabular-nums" [class.text-red-600]="m.inflated > 0">
+                  {{ m.inflated }} <span class="text-neutral-400">/ {{ m.sections }}</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </app-table-shell>
+
+      <!-- por sección -->
+      <ng-container *ngTemplateOutlet="sectionTable" />
+    }
+
+    <!-- ════════════════════ movilización «votó» ════════════════════ -->
+    @case ('mobilization') {
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <app-stat-card label="Marcados «votó»" [value]="loading() ? null : t.voted" icon="users-round" accent="primary" />
+        <app-stat-card
+          label="De sus convencidos"
+          [value]="loading() || t.votedPct == null ? null : (t.votedPct | number: '1.1-1') + ' %'"
+          icon="percent"
+          accent="secondary"
+        />
+        <app-stat-card
+          label="Marcados / votos emitidos oficiales"
+          [value]="loading() || t.votedIndex == null ? null : (t.votedIndex | number: '1.1-1') + ' %'"
+          icon="scale"
+          accent="amber"
+        />
+        <app-stat-card label="Secciones con más «votó» que votos emitidos" [value]="loading() ? null : t.impossibleVoted" icon="triangle-alert" accent="red" />
+      </div>
+      <p class="-mt-3 text-xs text-neutral-500">
+        El día D la estructura marcó a {{ t.voted | number }} convencidos como «votó». En toda la gubernatura votaron
+        {{ t.totalVotes | number }} personas en esas secciones: una marca que se acerca al total de votos emitidos, o lo
+        rebasa, no midió a quién se movilizó sino a quién se registró.
+      </p>
+
+      <app-table-shell [loading]="loading()" [empty]="!loading() && !byMunicipality().length">
+        <table class="w-full min-w-[52rem] text-sm">
+          <thead class="sticky top-0 border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800">
+            <tr>
+              <th class="py-2.5 pr-2 pl-4 font-semibold">Municipio</th>
+              <th class="px-2 py-2.5 text-right font-semibold">Convencidos</th>
+              <th class="px-2 py-2.5 text-right font-semibold">Marcados «votó»</th>
+              <th class="px-2 py-2.5 text-right font-semibold">% de convencidos</th>
+              <th class="px-2 py-2.5 text-right font-semibold">Votos emitidos</th>
+              <th class="py-2.5 pr-4 pl-2 text-right font-semibold" title="Marcados «votó» / votos emitidos oficiales">Índice</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of byMunicipality(); track m.name) {
+              <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
+                <td class="py-2 pr-2 pl-4 font-medium">{{ m.name }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.supporters | number }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.voted | number }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.votedPct | number: '1.1-1' }} %</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ m.totalVotes | number }}</td>
+                <td class="py-2 pr-4 pl-2 text-right font-semibold tabular-nums" [class.text-red-600]="(m.votedIndex ?? 0) > 90">
+                  {{ m.votedIndex | number: '1.1-1' }} %
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </app-table-shell>
+
+      <ng-container *ngTemplateOutlet="sectionTable" />
+    }
+
+    <!-- ════════════════════ estructura 2024 ════════════════════ -->
+    @case ('structure') {
+      @let cs = coordinatorStats();
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <app-stat-card label="Coordinadores de zona" [value]="loading() ? null : cs.count" icon="network" accent="primary" />
+        <app-stat-card label="Promotores" [value]="loading() ? null : cs.promoters" icon="users-round" accent="secondary" />
+        <app-stat-card label="Convencidos por coordinador (mediana)" [value]="loading() ? null : cs.median" icon="heart-handshake" accent="emerald" />
+        <app-stat-card
+          [label]="'Llegaron a su meta (de ' + (cs.withGoal | number) + ' con meta)'"
+          [value]="loading() ? null : cs.metGoal"
+          icon="target"
+          accent="amber"
+        />
+      </div>
+
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <label class="flex flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase">Municipio</span>
+          <select
+            class="min-w-48 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+            (change)="coordinatorMunicipality.set($any($event.target).value || null); coordinatorLimit.set(PAGE)"
+          >
+            <option value="">Todos</option>
+            @for (m of municipalities(); track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        </label>
+        <div class="flex items-center gap-4 text-xs text-neutral-600 dark:text-neutral-400">
+          <span><b class="tabular-nums">{{ filteredCoordinators().length | number }}</b> coordinadores</span>
+          @if (cs.empty) {
+            <span class="text-red-600">{{ cs.empty }} sin ningún convencido</span>
+          }
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+            (click)="exportCoordinators()"
+          >
+            <mat-icon svgIcon="download" class="icon-size-4" /> Descargar CSV
+          </button>
+        </div>
+      </div>
+
+      <app-table-shell [loading]="loading()" [empty]="!loading() && !filteredCoordinators().length">
+        <table class="w-full min-w-[64rem] text-sm">
+          <thead class="sticky top-0 border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800">
+            <tr>
+              <th class="py-2.5 pr-2 pl-4 font-semibold">Coordinador de zona</th>
+              <th class="px-2 py-2.5 font-semibold">Municipio · sección</th>
+              <th class="px-2 py-2.5 text-right font-semibold">
+                <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortCoordinators('promoters')">
+                  Promotores
+                  @if (icon(coordinatorSort() === 'promoters', coordinatorDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                </button>
+              </th>
+              <th class="px-2 py-2.5 text-right font-semibold">
+                <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortCoordinators('members')">
+                  Convencidos
+                  @if (icon(coordinatorSort() === 'members', coordinatorDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                </button>
+              </th>
+              <th class="px-2 py-2.5 font-semibold">
+                <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortCoordinators('goalPct')">
+                  De la meta
+                  @if (icon(coordinatorSort() === 'goalPct', coordinatorDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                </button>
+              </th>
+              <th class="px-2 py-2.5 text-right font-semibold">
+                <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortCoordinators('votedPct')">
+                  «Votó»
+                  @if (icon(coordinatorSort() === 'votedPct', coordinatorDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                </button>
+              </th>
+              <th class="py-2.5 pr-4 pl-2 text-right font-semibold">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 uppercase"
+                  title="Votos 4T / convencidos en la sección del coordinador"
+                  (click)="sortCoordinators('sectionConversion')"
+                >
+                  Conversión secc.
+                  @if (icon(coordinatorSort() === 'sectionConversion', coordinatorDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of shownCoordinators(); track r.positionId) {
+              <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
+                <td class="py-2 pr-2 pl-4">
+                  <div class="font-medium">{{ r.holderName ?? 'Sin titular' }}</div>
+                  @if (r.territoryType !== 'SECTION') {
+                    <div class="text-2xs text-neutral-500">coordinación municipal</div>
+                  }
+                </td>
+                <td class="px-2 py-2 text-xs">
+                  {{ r.municipality }}
+                  @if (r.section != null) { <span class="text-neutral-500">· {{ pad(r.section) }}</span> }
+                </td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ r.promoters | number }}</td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ r.members | number }}</td>
+                <td class="px-2 py-2">
+                  @if (r.goalPct != null) {
+                    <div class="flex items-center gap-2">
+                      <div class="h-1.5 w-16 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                        <div
+                          class="h-full rounded-full"
+                          [class]="r.goalPct >= 100 ? 'bg-emerald-500' : r.goalPct >= 50 ? 'bg-amber-400' : 'bg-red-500'"
+                          [style.width.%]="r.goalPct > 100 ? 100 : r.goalPct"
+                        ></div>
+                      </div>
+                      <span class="text-xs tabular-nums">{{ r.goalPct | number: '1.0-0' }} %</span>
+                    </div>
+                  } @else {
+                    <span class="text-neutral-400">sin meta</span>
+                  }
+                </td>
+                <td class="px-2 py-2 text-right tabular-nums">{{ r.votedPct == null ? '—' : (r.votedPct | number: '1.0-0') + ' %' }}</td>
+                <td class="py-2 pr-4 pl-2 text-right tabular-nums" [class.text-red-600]="(r.sectionConversion ?? 100) < 80">
+                  {{ r.sectionConversion == null ? '—' : (r.sectionConversion | number: '1.0-0') + ' %' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </app-table-shell>
+      @if (filteredCoordinators().length > shownCoordinators().length) {
+        <button
+          type="button"
+          class="self-center rounded-lg border border-neutral-200 bg-card px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+          (click)="coordinatorLimit.set(coordinatorLimit() + PAGE)"
+        >
+          Mostrar más <span class="text-neutral-500">(van {{ shownCoordinators().length }} de {{ filteredCoordinators().length | number }})</span>
+        </button>
+      }
+      <p class="text-xs text-neutral-500">
+        Convencidos de toda la rama del coordinador (sus promotores y los anclados a él) en la estructura principal de
+        2024. «Conversión secc.» compara los votos 4T de la gubernatura con todos los convencidos de su sección, de
+        cualquier coordinador.
+      </p>
+    }
+
+    <!-- ════════════════════ perfil ════════════════════ -->
+    @case ('profile') {
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        @for (p of profileCharts(); track p.key) {
+          <app-chart-card
+            [heading]="p.label"
+            [options]="loading() ? null : p.options"
+            [emptyText]="loading() ? 'Cargando…' : 'Sin datos.'"
+          />
+        }
+      </div>
+      <app-chart-card
+        heading="Convencidos capturados por mes"
+        [subtitle]="'Fecha de alta en la estructura. Origen: ' + source()"
+        [options]="captureChart()"
+        [emptyText]="loading() ? 'Cargando…' : 'Sin datos.'"
+      />
+      <p class="text-xs text-neutral-500">
+        Respuestas de la encuesta de captura de la app, tal como se registraron. La edad se calcula a la jornada
+        ({{ c?.electionDay }}); «sin respuesta» junta las vacías y las capturadas como «--».
+      </p>
+    }
+  }
+</div>
+
+<!-- tabla de secciones, compartida por las dos primeras pestañas -->
+<ng-template #sectionTable>
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-end gap-4">
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Mostrar</span>
+        <select
+          class="rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+          (change)="setSectionFilter(() => sectionFilter.set($any($event.target).value))"
+        >
+          <option value="ALL" [selected]="sectionFilter() === 'ALL'">Todas las secciones</option>
+          <option value="INFLATED" [selected]="sectionFilter() === 'INFLATED'">Más convencidos que votos 4T</option>
+          <option value="LOST_WITH_STRUCTURE" [selected]="sectionFilter() === 'LOST_WITH_STRUCTURE'">Ayuntamiento perdido con cobertura ≥ 30 %</option>
+          <option value="IMPOSSIBLE_VOTED" [selected]="sectionFilter() === 'IMPOSSIBLE_VOTED'">Más «votó» que votos emitidos</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Municipio</span>
+        <select
+          class="min-w-48 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+          (change)="setSectionFilter(() => sectionMunicipality.set($any($event.target).value || null))"
+        >
+          <option value="">Todos</option>
+          @for (m of municipalities(); track m) {
+            <option [value]="m" [selected]="m === sectionMunicipality()">{{ m }}</option>
+          }
+        </select>
+      </label>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-neutral-600 dark:text-neutral-400">
+      <span><b class="tabular-nums">{{ filteredSections().length | number }}</b> secciones</span>
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+        (click)="exportSections()"
+      >
+        <mat-icon svgIcon="download" class="icon-size-4" /> Descargar CSV
+      </button>
+    </div>
+  </div>
+
+  <app-table-shell [loading]="loading()" [empty]="!loading() && !filteredSections().length" emptyText="Ninguna sección con este filtro.">
+    <table class="w-full min-w-[64rem] text-sm">
+      <thead class="sticky top-0 border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800">
+        <tr>
+          <th class="py-2.5 pr-2 pl-4 font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('section')">
+              Sección
+              @if (icon(sectionSort() === 'section', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-2 py-2.5 text-right font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('supporters')">
+              Convencidos
+              @if (icon(sectionSort() === 'supporters', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-2 py-2.5 text-right font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('votes4t')">
+              Votos 4T
+              @if (icon(sectionSort() === 'votes4t', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-2 py-2.5 text-right font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('conversion')">
+              Conversión
+              @if (icon(sectionSort() === 'conversion', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-2 py-2.5 text-right font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('coverage')">
+              Cobertura
+              @if (icon(sectionSort() === 'coverage', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="px-2 py-2.5 text-right font-semibold">Marcados «votó»</th>
+          <th class="px-2 py-2.5 text-right font-semibold">
+            <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortSections('votedIndex')" title="Marcados «votó» / votos emitidos oficiales">
+              Índice «votó»
+              @if (icon(sectionSort() === 'votedIndex', sectionDesc()); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+            </button>
+          </th>
+          <th class="py-2.5 pr-4 pl-2 font-semibold">Ayuntamiento</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of shownSections(); track r.sectionGeoId) {
+          <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
+            <td class="py-2 pr-2 pl-4">
+              <div class="font-semibold tabular-nums">{{ pad(r.section) }}</div>
+              <div class="text-2xs text-neutral-500">{{ r.municipality }}</div>
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ r.supporters | number }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ r.votes4t == null ? '—' : (r.votes4t | number) }}</td>
+            <td class="px-2 py-2 text-right font-semibold tabular-nums" [class.text-red-600]="r.inflated">
+              {{ r.conversion == null ? '—' : (r.conversion | number: '1.0-0') + ' %' }}
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ r.coverage == null ? '—' : (r.coverage | number: '1.0-0') + ' %' }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ r.voted | number }}</td>
+            <td class="px-2 py-2 text-right tabular-nums" [class.text-red-600]="(r.votedIndex ?? 0) > 100">
+              {{ r.votedIndex == null ? '—' : (r.votedIndex | number: '1.0-0') + ' %' }}
+            </td>
+            <td class="py-2 pr-4 pl-2 text-xs">
+              @if (r.mayor4tPct != null) {
+                <span [class.text-red-600]="r.mayorLost">{{ r.mayorLost ? 'Perdido' : 'Ganado' }} · 4T {{ r.mayor4tPct | number: '1.0-0' }} %</span>
+              } @else {
+                <span class="text-neutral-400" title="Sección dividida en 2026 o sin resultado">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </app-table-shell>
+  @if (filteredSections().length > shownSections().length) {
+    <button
+      type="button"
+      class="self-center rounded-lg border border-neutral-200 bg-card px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+      (click)="sectionLimit.set(sectionLimit() + PAGE)"
+    >
+      Mostrar más <span class="text-neutral-500">(van {{ shownSections().length }} de {{ filteredSections().length | number }})</span>
+    </button>
+  }
+</ng-template>

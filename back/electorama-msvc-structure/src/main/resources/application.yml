@@ -1,0 +1,66 @@
+app:
+  config:
+    usuarios-url: ${MSVC_USER:http://localhost:8001}
+    geography-url: ${MSVC_GEOGRAPHY:http://localhost:9003}
+    followers-url: ${MSVC_FOLLOWERS:http://localhost:9002}
+    keycloak:
+      url: ${KEYCLOAK_URL:http://localhost:8080}
+      realm: ${KEYCLOAK_REALM:electorama-realm}
+
+spring:
+  jackson:
+    time-zone: America/Mexico_City
+    locale: es_MX
+  application:
+    name: electorama-msvc-structure
+  datasource:
+    # Sin defaults de producción: si falta la variable, el servicio no arranca.
+    # Es deliberado — en el resto de los microservicios el default apunta a la
+    # base productiva y eso ya provocó escrituras accidentales.
+    url: jdbc:postgresql://${DB_HOST:localhost:5432}/${DB_DATABASE:electorama}?currentSchema=structure,public
+    username: ${DB_USERNAME:electorama}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 600000
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: structure
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}
+
+server:
+  port: ${SERVER_PORT:9014}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Sólo lo necesario. El resto de los servicios expone "*", que no debe copiarse.
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!kubernetes"
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

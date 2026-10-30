@@ -1,0 +1,57 @@
+#fuse {
+  /* ------------------------------------------------------------------------ */
+  /* Styles                                                                   */
+  /* ------------------------------------------------------------------------ */
+  input:not(.restore-autofill-styles) {
+    &:-webkit-autofill {
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: var(--input-text-color);
+      transition: background-color 0s ease-in-out 999999s;
+    }
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Variables                                                                */
+  /* ------------------------------------------------------------------------ */
+  input:not(.restore-autofill-styles) {
+    --input-text-color: light-dark(
+      var(--color-neutral-950),
+      var(--color-white)
+    );
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Inputs nativos de fecha/hora (type="date" dentro de mat-form-field)      */
+  /* Normaliza tipografía y hace visible el ícono de calendario en dark.      */
+  /* ------------------------------------------------------------------------ */
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  input[type='month'] {
+    color: var(--input-text-color);
+    font-family: inherit;
+    font-size: var(--form-field-font-size);
+    /* Igualar altura/ancho a los inputs de texto de Material (evita que se vea más delgado). */
+    width: 100%;
+    box-sizing: border-box;
+    line-height: var(--form-field-line-height);
+    min-height: var(--form-field-line-height);
+
+    &::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.15s ease;
+    }
+    &::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
+  }
+
+  /* En esquema oscuro, invierte el ícono para que sea visible. */
+  &.scheme-dark input[type='date']::-webkit-calendar-picker-indicator,
+  &.scheme-dark input[type='time']::-webkit-calendar-picker-indicator,
+  &.scheme-dark input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  &.scheme-dark input[type='month']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}

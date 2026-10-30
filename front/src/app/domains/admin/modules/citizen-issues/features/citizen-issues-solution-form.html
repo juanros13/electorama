@@ -1,0 +1,381 @@
+<div class="flex flex-auto flex-col p-6 md:p-10">
+  <app-page-header
+    eyebrow="Atención ciudadana"
+    [title]="readonly() ? 'Solución registrada' : 'Registrar solución'"
+    subtitle="Seguimiento de incidencia ciudadana"
+  >
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="cancel()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar al listado
+    </button>
+  </app-page-header>
+
+  <!-- Resumen de la incidencia -->
+  @if (dao(); as detail) {
+    <div
+      class="mt-6 grid gap-2 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+    >
+      <p><span class="font-bold">FOLIO:</span> {{ detail.issue.invoice }}</p>
+      <p>
+        <span class="font-bold">SOLICITANTE:</span> {{ detail.issue.fullName }}
+      </p>
+      <p>
+        <span class="font-bold">CATEGORÍA:</span>
+        {{ detail.issueCategory.name }}
+      </p>
+      <p><span class="font-bold">TIPO:</span> {{ detail.issueType.name }}</p>
+      <p class="flex items-center gap-2">
+        <span class="font-bold">ESTATUS:</span>
+        <span
+          class="rounded px-2 py-0.5 text-xs font-bold text-white"
+          [class]="
+            detail.issueStatus.id === 1
+              ? 'bg-yellow-500'
+              : detail.issueStatus.id === 2
+                ? 'bg-orange-500'
+                : 'bg-emerald-500'
+          "
+        >
+          {{ detail.issueStatus.name }}
+        </span>
+      </p>
+      @if (detail.pathFile) {
+        <p class="flex items-center gap-2">
+          <span class="font-bold">COMPROBANTE:</span>
+          <button
+            matButton="tonal"
+            type="button"
+            (click)="downloadFile(detail.pathFile)"
+          >
+            <mat-icon svgIcon="download" />
+            Descargar
+          </button>
+        </p>
+      }
+    </div>
+  }
+
+  <!-- Form -->
+  <form
+    class="mt-6"
+    [formGroup]="form"
+  >
+    <mat-stepper
+      orientation="vertical"
+      linear
+    >
+      <!-- Paso 1: beneficiario -->
+      <mat-step
+        formGroupName="step1"
+        [stepControl]="step1"
+      >
+        <ng-template matStepLabel>Datos del beneficiario</ng-template>
+
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>CURP</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="id-card"
+            />
+            <input
+              matInput
+              formControlName="curp"
+              appUppercase
+              maxlength="18"
+            />
+            @if (step1.get('curp')!.hasError('pattern')) {
+              <mat-error>CURP inválido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Nombre(s)</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="user"
+            />
+            <input
+              matInput
+              formControlName="names"
+              appUppercase
+            />
+            @if (step1.get('names')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Apellido paterno</mat-label>
+            <input
+              matInput
+              formControlName="lastName"
+              appUppercase
+            />
+            @if (step1.get('lastName')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Apellido materno</mat-label>
+            <input
+              matInput
+              formControlName="surName"
+              appUppercase
+            />
+            @if (step1.get('surName')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Teléfono celular</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="smartphone"
+            />
+            <input
+              matInput
+              formControlName="cellPhoneNumber"
+              inputmode="tel"
+              maxlength="10"
+            />
+            @if (step1.get('cellPhoneNumber')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Sexo</mat-label>
+            <mat-select
+              formControlName="sex"
+              [compareWith]="compareById"
+            >
+              @for (s of sexOptions(); track s.id) {
+                <mat-option [value]="s">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+            @if (step1.get('sex')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Fecha de nacimiento</mat-label>
+            <input
+              matInput
+              formControlName="birthdate"
+              readonly
+              placeholder="Derivada de la CURP"
+            />
+          </mat-form-field>
+        </div>
+
+        @if (!readonly()) {
+          <div class="mt-4 flex justify-end">
+            <button
+              matButton="filled"
+              type="button"
+              matStepperNext
+              [disabled]="step1.invalid"
+            >
+              Siguiente
+            </button>
+          </div>
+        }
+      </mat-step>
+
+      <!-- Paso 2: solución -->
+      <mat-step
+        formGroupName="step2"
+        [stepControl]="step2"
+      >
+        <ng-template matStepLabel>Datos de la solución</ng-template>
+
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <mat-form-field>
+            <mat-label>Recurso</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="store"
+            />
+            <mat-select
+              formControlName="issueResource"
+              [compareWith]="compareById"
+            >
+              <div class="px-3 py-2">
+                <input
+                  class="w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  formControlName="searchResource"
+                  placeholder="Buscar recurso"
+                  (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                  (input)="filterResources()"
+                />
+              </div>
+              @for (r of filteredResources(); track r.id) {
+                <mat-option
+                  [value]="r"
+                  [disabled]="r.name === 'Sin Resultados'"
+                  >{{ r.name }}</mat-option
+                >
+              }
+            </mat-select>
+            @if (enableAddItems && !readonly()) {
+              <button
+                matIconButton
+                matSuffix
+                type="button"
+                (click)="openResourceDialog($event)"
+              >
+                <mat-icon
+                  class="text-secondary-600"
+                  svgIcon="circle-plus"
+                />
+              </button>
+            }
+            @if (step2.get('issueResource')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Cantidad</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="hash"
+            />
+            <input
+              matInput
+              type="number"
+              min="0"
+              formControlName="issueResourceQty"
+            />
+            @if (step2.get('issueResourceQty')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+            @if (step2.get('issueResourceQty')!.hasError('min')) {
+              <mat-error>Debe ser mayor o igual a 0.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Proveedor</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="truck"
+            />
+            <mat-select
+              formControlName="provider"
+              [compareWith]="compareById"
+            >
+              <div class="px-3 py-2">
+                <input
+                  class="w-full rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  formControlName="searchProvider"
+                  placeholder="Buscar proveedor"
+                  (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                  (input)="filterProviders()"
+                />
+              </div>
+              @for (p of filteredProviders(); track p.id) {
+                <mat-option
+                  [value]="p"
+                  [disabled]="p.name === 'Sin Resultados'"
+                  >{{ p.name }}</mat-option
+                >
+              }
+            </mat-select>
+            @if (enableAddItems && !readonly()) {
+              <button
+                matIconButton
+                matSuffix
+                type="button"
+                (click)="openProviderDialog($event)"
+              >
+                <mat-icon
+                  class="text-secondary-600"
+                  svgIcon="circle-plus"
+                />
+              </button>
+            }
+            @if (step2.get('provider')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Fecha de solución</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="calendar-days"
+            />
+            <input
+              matInput
+              type="date"
+              formControlName="dateSolution"
+            />
+            @if (step2.get('dateSolution')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field class="md:col-span-2 lg:col-span-3">
+            <mat-label>Observaciones</mat-label>
+            <mat-icon
+              matPrefix
+              svgIcon="square-pen"
+            />
+            <textarea
+              matInput
+              formControlName="comments"
+              rows="3"
+              class="resize-none"
+              appUppercase
+            ></textarea>
+            @if (step2.get('comments')!.hasError('required')) {
+              <mat-error>Requerido.</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="mt-4 flex flex-wrap justify-between gap-2">
+          <button
+            matButton
+            type="button"
+            matStepperPrevious
+          >
+            Regresar
+          </button>
+          @if (!readonly()) {
+            <div class="flex flex-wrap gap-2">
+              <button
+                matButton="tonal"
+                type="button"
+                [disabled]="saving()"
+                (click)="markInProgress()"
+              >
+                Marcar EN PROCESO
+              </button>
+              <button
+                matButton="filled"
+                type="button"
+                [disabled]="form.invalid || saving()"
+                (click)="save()"
+              >
+                Registrar solución
+              </button>
+            </div>
+          }
+        </div>
+      </mat-step>
+    </mat-stepper>
+  </form>
+</div>

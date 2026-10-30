@@ -1,0 +1,92 @@
+<div class="flex min-w-0 flex-auto flex-col">
+  <!-- Header -->
+  <div
+    class="bg-card flex flex-col border-b p-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-8 dark:bg-transparent"
+  >
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center font-medium">
+        <span class="whitespace-nowrap">Encuestas</span>
+        <mat-icon
+          svgIcon="chevron-right"
+          class="icon-size-5 text-secondary mx-1"
+        />
+        <span>Datos por encuesta</span>
+      </div>
+      <h2
+        class="mt-2 truncate text-3xl font-extrabold tracking-tight md:text-4xl"
+      >
+        Datos completos por encuesta
+      </h2>
+    </div>
+    <div class="mt-6 sm:mt-0 sm:ml-4">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="back()"
+      >
+        <mat-icon
+          svgIcon="arrow-left"
+          class="mr-2"
+        />
+        Listado de encuestas
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenido -->
+  <div class="p-6 sm:p-10">
+    @if (survey(); as s) {
+      <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">ID DEL DISPOSITIVO</span>
+          <span class="font-medium">{{ s.deviceId }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">FOLIO</span>
+          <span class="font-medium">{{ s.surveyUserFolio.folio }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">CAPTURISTA</span>
+          <span class="font-medium">{{ s.surveyUser.name }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">SECCIÓN</span>
+          <span class="font-medium">{{ s.sectionNumber }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">FECHA DE LA ENCUESTA</span>
+          <span class="font-medium">{{
+            s.surveyDate | date: 'dd/MM/yyyy HH:mm'
+          }}</span>
+        </div>
+        <div class="flex flex-col items-center py-2">
+          <span class="font-black">ÚLTIMA ACTUALIZACIÓN</span>
+          <span class="font-medium">{{
+            s.updated | date: 'dd/MM/yyyy HH:mm'
+          }}</span>
+        </div>
+      </div>
+
+      <h4 class="mb-4 text-center text-2xl font-bold">IMÁGENES</h4>
+      @if (images().length > 0) {
+        <div class="mb-8 flex flex-wrap justify-center gap-4">
+          @for (url of images(); track $index) {
+            <img
+              [src]="url"
+              class="w-48 rotate-90 rounded-md object-cover"
+              alt="Imagen del censo"
+            />
+          }
+        </div>
+      } @else {
+        <div class="py-4 text-center text-gray-500">NO HAY IMÁGENES</div>
+      }
+
+      <app-surveys-form />
+    } @else if (!loading()) {
+      <div class="py-10 text-center text-gray-500">
+        No se encontró la encuesta.
+      </div>
+    }
+  </div>
+</div>

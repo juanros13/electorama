@@ -1,0 +1,258 @@
+@let f = form();
+@let t = target();
+
+<div class="flex flex-col gap-6 p-6 md:p-8">
+  <app-page-header
+    eyebrow="Estructura · campaña activa"
+    title="Capturar convencidos"
+    subtitle="Los mismos datos que la app. El convencido queda en tu puesto o, si tienes gente a cargo, en el de quien elijas."
+  />
+
+  @if (!targetsLoading() && !targets().length) {
+    <app-section-card>
+      <p class="text-sm text-neutral-500">
+        No ocupas ningún puesto en la campaña activa, así que no hay dónde dejar convencidos.
+      </p>
+    </app-section-card>
+  }
+
+  @if (targets().length) {
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-5">
+      <!-- ───────────────────────── el formulario ───────────────────────── -->
+      <div class="flex flex-col gap-4 xl:col-span-3">
+        <!-- dónde queda -->
+        <app-section-card>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex min-w-64 flex-1 flex-col gap-1">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase">Queda en</span>
+              @if (targets().length === 1) {
+                <span class="py-2 text-sm font-medium">
+                  {{ levelLabel(targets()[0]) }} · {{ targets()[0].label }} ·
+                  {{ targets()[0].holderName }}
+                </span>
+              } @else {
+                <select
+                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                  [ngModel]="targetId()"
+                  (ngModelChange)="selectTarget($event)"
+                >
+                  @for (o of targets(); track o.positionId) {
+                    <option [ngValue]="o.positionId">
+                      {{ o.own ? '★ ' : '' }}{{ levelLabel(o) }} · {{ o.label }} · {{ o.holderName }}
+                    </option>
+                  }
+                </select>
+              }
+            </label>
+            <div class="flex flex-col gap-1">
+              <span class="text-2xs tracking-wider text-neutral-500 uppercase">¿Simpatiza con el movimiento?</span>
+              <!-- w-fit: sin él la píldora se estira al ancho del título y queda hueca a la derecha -->
+              <div class="flex w-fit rounded-full border border-neutral-200 p-0.5 text-sm dark:border-neutral-800">
+                <button
+                  type="button"
+                  class="w-14 rounded-full py-1 text-center"
+                  [class]="f.supportsMovement ? 'bg-primary-600 text-white' : 'text-neutral-500'"
+                  (click)="set('supportsMovement', true)"
+                >
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  class="w-14 rounded-full py-1 text-center"
+                  [class]="!f.supportsMovement ? 'bg-neutral-800 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500'"
+                  (click)="set('supportsMovement', false)"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
+          @if (!f.supportsMovement) {
+            <p class="mt-3 text-xs text-neutral-500">
+              Si no simpatiza, como en la app sólo se guardan sexo, sección y domicilio.
+            </p>
+          }
+        </app-section-card>
+
+        <!-- datos personales -->
+        @if (f.supportsMovement) {
+          <app-section-card heading="Datos personales">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Nombre(s)" [ngModel]="f.names" (ngModelChange)="set('names', $event)" />
+              <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Primer apellido" [ngModel]="f.lastName" (ngModelChange)="set('lastName', $event)" />
+              <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Segundo apellido" [ngModel]="f.surName" (ngModelChange)="set('surName', $event)" />
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent font-mono uppercase sm:col-span-2"
+                placeholder="CURP (llena sexo y nacimiento)"
+                maxlength="18"
+                [ngModel]="f.curp"
+                (ngModelChange)="setCurp($event)"
+              />
+              <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" type="date" [ngModel]="f.birthdate" (ngModelChange)="set('birthdate', $event)" />
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent font-mono uppercase sm:col-span-2"
+                placeholder="Clave de elector (18)"
+                maxlength="18"
+                [ngModel]="f.ine"
+                (ngModelChange)="set('ine', ($event ?? '').toUpperCase())"
+              />
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                type="number"
+                placeholder="Vigencia INE (año)"
+                [min]="2000"
+                [max]="currentYear + 10"
+                [ngModel]="f.ineValidity"
+                (ngModelChange)="set('ineValidity', $event === '' ? null : $event)"
+              />
+            </div>
+          </app-section-card>
+        }
+
+        <!-- sexo (siempre) y contacto -->
+        <app-section-card [heading]="f.supportsMovement ? 'Contacto' : 'Sexo'">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <select class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" [ngModel]="f.sex" (ngModelChange)="set('sex', $event)">
+              <option [ngValue]="null" disabled>Sexo</option>
+              <option value="MUJER">Mujer</option>
+              <option value="HOMBRE">Hombre</option>
+            </select>
+            @if (f.supportsMovement) {
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="Teléfono (10 dígitos)"
+                [ngModel]="f.cellPhoneNumber"
+                (ngModelChange)="set('cellPhoneNumber', ($event ?? '').replace(/\D/g, ''))"
+              />
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" [ngModel]="f.supportWhatsapp" (ngModelChange)="set('supportWhatsapp', $event)" />
+                Tiene WhatsApp
+              </label>
+              <input
+                class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="Otro teléfono"
+                [ngModel]="f.cellPhoneNumberOther"
+                (ngModelChange)="set('cellPhoneNumberOther', ($event ?? '').replace(/\D/g, ''))"
+              />
+              <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent sm:col-span-2" type="email" placeholder="Correo" [ngModel]="f.email" (ngModelChange)="set('email', $event)" />
+            }
+          </div>
+        </app-section-card>
+
+        <!-- domicilio -->
+        <app-section-card heading="Domicilio">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <!-- el convencido es de la sección del puesto; un referente elige entre las de su municipio -->
+            @if (fixedSection(); as fixed) {
+              <div
+                class="flex items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-white/5 sm:col-span-1"
+                title="Se captura en la sección del puesto"
+              >
+                Sección {{ +fixed.section }}
+                <span class="ml-1 text-2xs text-neutral-400">· la del puesto</span>
+              </div>
+            } @else {
+              <select class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent sm:col-span-1" [ngModel]="f.sectionGeoId" (ngModelChange)="set('sectionGeoId', $event)">
+                <option [ngValue]="null" disabled>Sección</option>
+                @for (s of sections(); track s.id) {
+                  <option [ngValue]="s.id">Sección {{ +s.section }}</option>
+                }
+              </select>
+            }
+            <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent sm:col-span-3" placeholder="Calle" [ngModel]="f.street" (ngModelChange)="set('street', $event)" />
+            <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Nº exterior" [ngModel]="f.externalNumber" (ngModelChange)="set('externalNumber', $event)" />
+            <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Nº interior" [ngModel]="f.internalNumber" (ngModelChange)="set('internalNumber', $event)" />
+            <input class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" placeholder="Colonia" [ngModel]="f.neighborhood" (ngModelChange)="set('neighborhood', $event)" />
+            <input
+              class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+              inputmode="numeric"
+              maxlength="5"
+              placeholder="CP"
+              [ngModel]="f.zipCode"
+              (ngModelChange)="set('zipCode', ($event ?? '').replace(/\D/g, ''))"
+            />
+          </div>
+        </app-section-card>
+
+        <!-- ubicación: para verlo en el mapa -->
+        <app-section-card heading="Ubicación">
+          <app-supporter-location-map
+            [value]="location()"
+            [supporters]="mapSupporters()"
+            [section]="sectionGeometry()"
+            (valueChange)="location.set($event)"
+          />
+        </app-section-card>
+
+        <!-- encuesta -->
+        @if (f.supportsMovement) {
+          <app-section-card heading="Encuesta">
+            <div class="flex flex-col gap-3 text-sm">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" [ngModel]="f.committeeParticipation" (ngModelChange)="set('committeeParticipation', $event)" />
+                Participa en el comité de defensa
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" [ngModel]="f.pollingRepParticipation" (ngModelChange)="set('pollingRepParticipation', $event)" />
+                Puede ser representante de casilla
+              </label>
+              <div class="flex flex-wrap items-center gap-3">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" [ngModel]="f.invitingOthers" (ngModelChange)="set('invitingOthers', $event)" />
+                  Está invitando a más personas
+                </label>
+                @if (f.invitingOthers) {
+                  <select class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" [ngModel]="f.numberOfPeopleInvited" (ngModelChange)="set('numberOfPeopleInvited', $event)">
+                    <option [ngValue]="null" disabled>¿A cuántas?</option>
+                    @for (o of invitedOptions; track o.value) {
+                      <option [ngValue]="o.value">{{ o.label }}</option>
+                    }
+                  </select>
+                }
+              </div>
+            </div>
+          </app-section-card>
+        }
+
+        <div class="flex justify-end">
+          <button matButton="filled" [disabled]="saving()" (click)="save()">
+            <mat-icon svgIcon="user-plus" class="icon-size-4" />
+            {{ saving() ? 'Guardando…' : 'Guardar convencido' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ───────────────────────── los capturados ───────────────────────── -->
+      <div class="xl:col-span-2">
+        <app-section-card [heading]="'Convencidos en ' + (t?.label ?? '')">
+          @if (supportersLoading()) {
+            <div class="h-0.5 animate-pulse rounded bg-primary-500"></div>
+          } @else if (!supporters().length) {
+            <p class="text-sm text-neutral-500">Todavía no hay convencidos en este puesto.</p>
+          } @else {
+            <p class="mb-3 text-xs text-neutral-500 tabular-nums">
+              {{ supporters().length | number: '1.0-0' }}{{ supporters().length === 100 ? '+' : '' }} vigentes
+            </p>
+            <ul class="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-900">
+              @for (s of supporters(); track s.id) {
+                <li class="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div class="min-w-0">
+                    <div class="truncate font-medium">{{ s.personName || 'sin nombre' }}</div>
+                    <div class="font-mono text-2xs text-neutral-400">
+                      {{ s.curp || 'sin CURP' }}{{ s.cellPhoneNumber ? ' · ' + s.cellPhoneNumber : '' }}
+                    </div>
+                  </div>
+                  <span class="shrink-0 text-2xs text-neutral-400 tabular-nums">{{ s.validFrom | date: 'dd/MM/yy HH:mm' }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </app-section-card>
+      </div>
+    </div>
+  }
+</div>

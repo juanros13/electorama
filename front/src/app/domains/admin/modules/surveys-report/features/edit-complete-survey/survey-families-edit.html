@@ -1,0 +1,247 @@
+@if (showStepper()) {
+  <div class="mt-2">
+    @for (member of familyControls; track member; let i = $index) {
+      <div
+        [formGroup]="member"
+        class="my-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+      >
+        <h4 class="col-span-full font-semibold">Integrante {{ i + 1 }}</h4>
+        <mat-form-field>
+          <mat-label>Nombre</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <input
+            matInput
+            formControlName="names"
+            appUppercase
+          />
+          @if (member.get('names')?.hasError('required')) {
+            <mat-error>Este campo es requerido.</mat-error>
+          }
+          @if (member.get('names')?.hasError('pattern')) {
+            <mat-error>Dato inválido.</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido paterno</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <input
+            matInput
+            formControlName="lastName"
+            appUppercase
+          />
+          @if (member.get('lastName')?.hasError('required')) {
+            <mat-error>Este campo es requerido.</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Apellido materno</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <input
+            matInput
+            formControlName="surName"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Fecha de nacimiento</mat-label>
+          <input
+            matInput
+            type="date"
+            formControlName="dateOfBirth"
+            [max]="today"
+          />
+          @if (member.get('dateOfBirth')?.hasError('required')) {
+            <mat-error>Este campo es requerido.</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Sexo</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <mat-select formControlName="gender">
+            @for (gender of genders; track gender) {
+              <mat-option [value]="gender">{{ gender }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Actividad económica - Profesión</mat-label>
+          <mat-icon
+            svgIcon="house"
+            matPrefix
+          />
+          <mat-select
+            formControlName="surveyProfession"
+            [compareWith]="compareById"
+            (selectionChange)="
+              switchMemberOther($event.value, i, 'otherSurveyProfession')
+            "
+          >
+            @for (p of professions(); track p.id) {
+              <mat-option [value]="p">{{ p.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Otra profesión</mat-label>
+          <mat-icon
+            svgIcon="type"
+            matPrefix
+          />
+          <input
+            matInput
+            formControlName="otherSurveyProfession"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Ocupación</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <mat-select
+            formControlName="surveyJob"
+            [compareWith]="compareById"
+            (selectionChange)="
+              switchMemberOther($event.value, i, 'otherSurveyJob')
+            "
+          >
+            @for (j of jobs(); track j.id) {
+              <mat-option [value]="j">{{ j.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Otra ocupación</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <input
+            matInput
+            formControlName="otherSurveyJob"
+            appUppercase
+          />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Relación familiar</mat-label>
+          <mat-icon
+            svgIcon="circle-user"
+            matPrefix
+          />
+          <mat-select
+            formControlName="familyRelationship"
+            [compareWith]="compareById"
+          >
+            @for (r of relationship(); track r.id) {
+              <mat-option [value]="r">{{ r.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-checkbox formControlName="ethnicGroup">¿Es indígena?</mat-checkbox>
+
+        <div class="col-span-full grid grid-cols-1 gap-6 md:grid-cols-2">
+          <mat-checkbox
+            formControlName="isDisabled"
+            (change)="toggleMemberField($event.checked, i, 'isDisabledName')"
+          >
+            ¿Presenta alguna discapacidad o enfermedad degenerativa?
+          </mat-checkbox>
+          <mat-checkbox
+            formControlName="federalProgram"
+            (change)="
+              toggleMemberField($event.checked, i, 'surveyFederalProgram')
+            "
+          >
+            ¿Cuenta con algún programa federal?
+          </mat-checkbox>
+          <mat-form-field>
+            <mat-label>Tipo de discapacidad</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <mat-select
+              formControlName="isDisabledName"
+              [compareWith]="compareById"
+            >
+              @for (d of disabilities(); track d.id) {
+                <mat-option [value]="d">{{ d.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Nombre del programa federal</mat-label>
+            <mat-icon
+              svgIcon="file-text"
+              matPrefix
+            />
+            <mat-select
+              formControlName="surveyFederalProgram"
+              [compareWith]="compareById"
+            >
+              @for (p of federalPrograms(); track p.id) {
+                <mat-option [value]="p">{{ p.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox
+            formControlName="isHeadOfHousehold"
+            (change)="setHeadOfHousehold(i)"
+          >
+            Se le relaciona como jefe de familia.
+          </mat-checkbox>
+        </div>
+
+        <div class="col-span-full">
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Borrar"
+            (click)="removeMember(i)"
+          >
+            <mat-icon
+              svgIcon="trash-2"
+              class="text-red-600"
+            />
+          </button>
+        </div>
+        <hr class="col-span-full" />
+      </div>
+    }
+
+    <div class="mt-4 flex flex-col gap-2 md:flex-row md:justify-end">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        class="md:mr-auto"
+        (click)="addMember()"
+        [disabled]="reachedMemberLimit()"
+      >
+        Agregar
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="save()"
+        [disabled]="saving()"
+      >
+        Actualizar datos de la familia
+      </button>
+    </div>
+  </div>
+}

@@ -1,0 +1,281 @@
+<div class="flex flex-auto flex-col p-6 md:p-10">
+  <!-- Header -->
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div>
+      <div class="text-sm text-neutral-500">Censo 2024</div>
+      <div class="text-3xl font-bold tracking-tight">
+        Datos extendidos de miembros
+      </div>
+      <div class="text-neutral-500">
+        Personas con discapacidad o de la tercera edad
+      </div>
+    </div>
+    <button
+      matButton="outlined"
+      type="button"
+      (click)="back()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="mt-10 text-center text-neutral-500">Cargando…</div>
+  } @else if (members().length === 0) {
+    <div
+      class="mt-10 rounded-xl border border-neutral-200 p-8 text-center text-neutral-500 dark:border-neutral-800"
+    >
+      Este censo no tiene miembros con discapacidad ni de la tercera edad que
+      requieran datos extendidos.
+    </div>
+  } @else {
+    <form
+      class="mt-6 grid gap-6"
+      [formGroup]="form"
+    >
+      <div
+        formArrayName="members"
+        class="grid gap-6"
+      >
+        @for (g of memberForms; track g; let i = $index) {
+          <div
+            class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+            [formGroupName]="i"
+          >
+            <div class="flex items-center gap-2">
+              <div class="text-lg font-bold">{{ members()[i].fullName }}</div>
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                [class]="
+                  members()[i].isDisable ? 'bg-purple-600' : 'bg-primary-600'
+                "
+              >
+                {{ members()[i].isDisable ? 'Discapacidad' : 'Tercera edad' }}
+              </span>
+            </div>
+
+            <!-- Origen étnico / lengua -->
+            <div
+              class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <mat-checkbox formControlName="ethnic"
+                >¿Pertenece a grupo étnico/afromexicano?</mat-checkbox
+              >
+              @if (g.get('ethnic')!.value) {
+                <mat-form-field>
+                  <mat-label>¿Cuál grupo?</mat-label>
+                  <input
+                    matInput
+                    formControlName="whichGroup"
+                  />
+                </mat-form-field>
+              }
+              <mat-checkbox formControlName="indigenous"
+                >¿Habla lengua indígena?</mat-checkbox
+              >
+              @if (g.get('indigenous')!.value) {
+                <mat-form-field>
+                  <mat-label>Lengua indígena</mat-label>
+                  <mat-select
+                    formControlName="indigenousLanguage"
+                    [compareWith]="compareById"
+                  >
+                    @for (l of indigenousLanguages(); track l.id) {
+                      <mat-option [value]="l">{{ l.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Otra (especificar)</mat-label>
+                  <input
+                    matInput
+                    formControlName="otherSpeak"
+                  />
+                </mat-form-field>
+              }
+            </div>
+
+            <!-- Discapacidad -->
+            @if (members()[i].isDisable) {
+              <hr class="my-4 border-neutral-200 dark:border-neutral-800" />
+              <div class="text-sm font-bold text-neutral-500">Discapacidad</div>
+              <div
+                class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+              >
+                <mat-form-field>
+                  <mat-label>Origen</mat-label>
+                  <mat-select
+                    formControlName="origin"
+                    [compareWith]="compareById"
+                  >
+                    @for (o of origins(); track o.id) {
+                      <mat-option [value]="o">{{ o.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (g.get('origin')!.hasError('required')) {
+                    <mat-error>Requerido.</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Información</mat-label>
+                  <mat-select
+                    formControlName="information"
+                    [compareWith]="compareById"
+                  >
+                    @for (o of information(); track o.id) {
+                      <mat-option [value]="o">{{ o.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (g.get('information')!.hasError('required')) {
+                    <mat-error>Requerido.</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Tipo</mat-label>
+                  <mat-select
+                    formControlName="type"
+                    [compareWith]="compareById"
+                  >
+                    @for (o of types(); track o.id) {
+                      <mat-option [value]="o">{{ o.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (g.get('type')!.hasError('required')) {
+                    <mat-error>Requerido.</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Causa</mat-label>
+                  <mat-select
+                    formControlName="cause"
+                    [compareWith]="compareById"
+                  >
+                    @for (o of causes(); track o.id) {
+                      <mat-option [value]="o">{{ o.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (g.get('cause')!.hasError('required')) {
+                    <mat-error>Requerido.</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Otra causa</mat-label>
+                  <input
+                    matInput
+                    formControlName="anotherCause"
+                  />
+                </mat-form-field>
+                <div class="flex flex-col gap-2 self-center">
+                  <mat-checkbox formControlName="healthCertificate"
+                    >¿Tiene certificado de salud?</mat-checkbox
+                  >
+                  <mat-checkbox formControlName="requiresHelp"
+                    >¿Requiere ayuda?</mat-checkbox
+                  >
+                </div>
+              </div>
+            }
+
+            <!-- Auxiliar / tutor -->
+            <hr class="my-4 border-neutral-200 dark:border-neutral-800" />
+            <div class="text-sm font-bold text-neutral-500">
+              Auxiliar / tutor
+            </div>
+            <div
+              class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <mat-form-field>
+                <mat-label>Nombre(s)</mat-label>
+                <input
+                  matInput
+                  formControlName="nameAux"
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Apellido paterno</mat-label>
+                <input
+                  matInput
+                  formControlName="lastNameAux"
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Apellido materno</mat-label>
+                <input
+                  matInput
+                  formControlName="surNameAux"
+                />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Parentesco</mat-label>
+                <mat-select
+                  formControlName="relationship"
+                  [compareWith]="compareById"
+                >
+                  @for (r of relationships(); track r.id) {
+                    <mat-option [value]="r">{{ r.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Teléfono</mat-label>
+                <input
+                  matInput
+                  formControlName="phoneNumber"
+                  maxlength="10"
+                  inputmode="tel"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Documentos -->
+            <hr class="my-4 border-neutral-200 dark:border-neutral-800" />
+            <div class="text-sm font-bold text-neutral-500">Documentos</div>
+            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              @for (field of docFields; track field) {
+                <div
+                  class="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 p-2 dark:border-neutral-700"
+                >
+                  <div class="min-w-0">
+                    <div class="text-sm font-medium">
+                      {{ docLabels[field] }}
+                    </div>
+                    <div class="truncate text-xs text-neutral-500">
+                      {{ docName(i, field) }}
+                    </div>
+                  </div>
+                  <label
+                    matButton="tonal"
+                    class="cursor-pointer whitespace-nowrap"
+                  >
+                    <mat-icon svgIcon="upload" />
+                    Archivo
+                    <input
+                      type="file"
+                      class="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      (change)="onFile($event, i, field)"
+                    />
+                  </label>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="flex justify-end">
+        <button
+          matButton="filled"
+          type="button"
+          [disabled]="form.invalid || saving()"
+          (click)="save()"
+        >
+          Guardar datos extendidos
+        </button>
+      </div>
+    </form>
+  }
+</div>

@@ -1,0 +1,262 @@
+@let t = totals();
+
+<header class="flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h2 class="text-base font-semibold">Secciones a vigilar</h2>
+    <p class="text-xs text-neutral-500">
+      Ayuntamiento {{ year() }}: las perdidas, las ganadas por menos de 10 pp y las que se quedaron
+      más de {{ gapPp }} pp debajo de la marca, con la estructura que hoy tienen para 2027.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+    [disabled]="!visible().length"
+    (click)="exportCsv()"
+  >
+    <mat-icon svgIcon="download" class="icon-size-4" />
+    Descargar CSV
+  </button>
+</header>
+
+<!-- filtros -->
+<div class="flex flex-wrap items-end gap-4">
+  <label class="flex flex-col gap-1">
+    <span class="text-2xs tracking-wider text-neutral-500 uppercase">Mostrar</span>
+    <select
+      class="rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+      (change)="setFilter(() => filter.set($any($event.target).value))"
+    >
+      @for (f of filters; track f.value) {
+        <option [value]="f.value" [selected]="f.value === filter()">{{ f.label }}</option>
+      }
+    </select>
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-2xs tracking-wider text-neutral-500 uppercase">Municipio</span>
+    <select
+      class="min-w-48 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+      (change)="setFilter(() => municipality.set($any($event.target).value ? +$any($event.target).value : null))"
+    >
+      <option value="">Todos</option>
+      @for (m of municipalities(); track m.code) {
+        <option [value]="m.code" [selected]="m.code === municipality()">{{ m.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-2xs tracking-wider text-neutral-500 uppercase">Sección</span>
+    <input
+      type="search"
+      inputmode="numeric"
+      placeholder="Número"
+      class="w-32 rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800"
+      [value]="query()"
+      (input)="setFilter(() => query.set($any($event.target).value))"
+    />
+  </label>
+
+  <div class="ml-auto flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
+    <span><b class="tabular-nums">{{ t.count | number }}</b> secciones</span>
+    <span matTooltip="Suma de los votos que faltaron en las secciones perdidas de la lista">
+      faltaron <b class="tabular-nums">{{ t.short | number }}</b> votos
+    </span>
+    @if (overview()) {
+      <span>
+        meta 2027 <b class="tabular-nums">{{ t.meta | number }}</b> · convencidos
+        <b class="tabular-nums">{{ t.members | number }}</b>
+        @if (t.progress != null) {
+          (<b class="tabular-nums">{{ t.progress | number: '1.1-1' }} %</b>)
+        }
+      </span>
+      @if (t.withoutStructure) {
+        <span class="font-medium text-red-600">{{ t.withoutStructure }} sin coordinador de zona</span>
+      }
+    }
+  </div>
+</div>
+
+@if (structureError()) {
+  <p class="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+    <mat-icon svgIcon="triangle-alert" class="mt-px shrink-0 icon-size-3.5" />
+    No se pudo leer la estructura (meta 2027, coordinadores y convencidos); la tabla sólo trae el resultado electoral.
+  </p>
+}
+
+<app-table-shell
+  [loading]="loading()"
+  [empty]="!visible().length"
+  emptyText="Ninguna sección con este filtro."
+>
+  <table class="w-full min-w-[78rem] text-sm">
+    <thead
+      class="sticky top-0 z-[1] border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800"
+    >
+      <tr>
+        <th class="py-2.5 pr-2 pl-4 font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('section')">
+            Sección
+            @if (sortIcon('section'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('status')">
+            Estado
+            @if (sortIcon('status'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 font-semibold">4T contra rival</th>
+        <th class="px-2 py-2.5 text-right font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('marginVotes')">
+            Votos
+            @if (sortIcon('marginVotes'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 text-right font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('brandGapPp')" matTooltip="Bloque 4T en ayuntamiento menos en la marca">
+            Vs. marca
+            @if (sortIcon('brandGapPp'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 text-right font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('nominalList')">
+            LN {{ year() }}
+            @if (sortIcon('nominalList'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="border-l border-neutral-200 px-2 py-2.5 text-right font-semibold dark:border-neutral-800">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('meta')">
+            Meta 2027
+            @if (sortIcon('meta'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 text-right font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('members')">
+            Convencidos
+            @if (sortIcon('members'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 text-right font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('previousMembers')" matTooltip="Convencidos de la campaña 2024, cerrada: referencia, no suman al avance">
+            Conv. 2024
+            @if (sortIcon('previousMembers'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="px-2 py-2.5 font-semibold">
+          <button type="button" class="inline-flex items-center gap-1 uppercase" (click)="sortBy('progress')">
+            Avance
+            @if (sortIcon('progress'); as i) { <mat-icon [svgIcon]="i" class="icon-size-3.5" /> }
+          </button>
+        </th>
+        <th class="py-2.5 pr-4 pl-2 font-semibold">Coordinadores · promotores</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of shown(); track r.section) {
+        <tr class="border-b border-neutral-100 align-top last:border-0 dark:border-neutral-800/60">
+          <td class="py-2 pr-2 pl-4">
+            <div class="font-semibold tabular-nums">{{ pad(r.section) }}</div>
+            <div class="text-2xs text-neutral-500">
+              {{ r.municipalityName }}
+              @if (r.localDistrict) { · DL {{ r.localDistrict }} }
+            </div>
+          </td>
+          <td class="px-2 py-2">
+            <span class="rounded-full px-2 py-0.5 text-2xs font-medium" [class]="statusChip[r.status]">
+              {{ statusLabel[r.status] }}
+            </span>
+          </td>
+          <td class="px-2 py-2">
+            <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+              <span class="font-medium">{{ r.best4tLabel }}</span>
+              <span class="tabular-nums text-neutral-500">{{ r.best4tPct | number: '1.1-1' }}</span>
+              <span class="text-neutral-400">vs</span>
+              <span class="font-medium">{{ r.rivalLabel }}</span>
+              <span class="tabular-nums text-neutral-500">{{ r.rivalPct | number: '1.1-1' }}</span>
+            </div>
+            <div class="text-2xs tabular-nums" [class.text-red-600]="r.marginPp < 0" [class.text-neutral-500]="r.marginPp >= 0">
+              {{ pp(r.marginPp) }} pp
+            </div>
+          </td>
+          <td
+            class="px-2 py-2 text-right font-semibold tabular-nums"
+            [class.text-red-600]="r.marginVotes < 0"
+            [attr.title]="r.marginVotes < 0 ? 'Votos que faltaron para ganar la sección' : 'Ventaja sobre el rival'"
+          >
+            {{ r.marginVotes > 0 ? '+' : '' }}{{ r.marginVotes | number }}
+          </td>
+          <td
+            class="px-2 py-2 text-right tabular-nums"
+            [class.text-red-600]="(r.brandGapPp ?? 0) > gapPp"
+            [attr.title]="'Marca ' + (r.brand4tPct | number: '1.1-1') + ' % · ayuntamiento ' + (r.bloc4tPct | number: '1.1-1') + ' %'"
+          >
+            {{ pp(r.brandGapPp == null ? null : -r.brandGapPp) }}
+          </td>
+          <td class="px-2 py-2 text-right tabular-nums">
+            {{ r.nominalList | number }}
+            <div class="text-2xs text-neutral-500">{{ r.turnout | number: '1.0-0' }} % votó</div>
+          </td>
+
+          @if (r.remapped) {
+            <td colspan="5" class="border-l border-neutral-200 px-2 py-2 text-xs text-neutral-500 dark:border-neutral-800">
+              Sección dividida en 2026: su estructura está en las secciones nuevas.
+            </td>
+          } @else {
+            <td class="border-l border-neutral-200 px-2 py-2 text-right tabular-nums dark:border-neutral-800">
+              {{ r.meta != null ? (r.meta | number) : '—' }}
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ overview() ? (r.members | number) : '—' }}</td>
+            <td class="px-2 py-2 text-right text-neutral-400 tabular-nums">
+              {{ r.previousMembers == null ? '—' : (r.previousMembers | number) }}
+            </td>
+            <td class="px-2 py-2">
+              @if (r.progress != null && overview()) {
+                <div class="flex items-center gap-2">
+                  <div class="h-1.5 w-16 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                    <div
+                      class="h-full rounded-full"
+                      [class]="r.progress >= 100 ? 'bg-emerald-500' : r.progress >= 50 ? 'bg-amber-400' : 'bg-red-500'"
+                      [style.width.%]="r.progress > 100 ? 100 : r.progress"
+                    ></div>
+                  </div>
+                  <span class="text-xs tabular-nums">{{ r.progress | number: '1.0-0' }} %</span>
+                </div>
+              } @else {
+                <span class="text-neutral-400">—</span>
+              }
+            </td>
+            <td class="py-2 pr-4 pl-2 text-xs">
+              @if (!overview()) {
+                <span class="text-neutral-400">—</span>
+              } @else if (r.positions === 0) {
+                <span class="font-medium text-red-600">Sin coordinador de zona</span>
+              } @else {
+                <div class="tabular-nums">{{ r.positions }} · {{ r.promoters }}</div>
+                <div class="max-w-72 truncate text-2xs text-neutral-500" [attr.title]="r.coordinators ?? ''">
+                  {{ r.coordinators }}
+                </div>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</app-table-shell>
+@if (visible().length > shown().length) {
+  <button
+    type="button"
+    class="self-center rounded-lg border border-neutral-200 bg-card px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+    (click)="limit.set(limit() + PAGE)"
+  >
+    Mostrar {{ (visible().length - shown().length > PAGE ? PAGE : visible().length - shown().length) }} más
+    <span class="text-neutral-500">(van {{ shown().length }} de {{ visible().length }})</span>
+  </button>
+}
+
+<p class="text-xs text-neutral-500">
+  El resultado es el de la sección en {{ year() }}; la meta 2027, la lista nominal 2027 y la
+  estructura son las de la campaña 2027 en curso (catálogo territorial y organigrama). Avance =
+  convencidos 2027 / meta 2027; «Conv. 2024» son los de la campaña cerrada, sólo de referencia. «4T» es la mejor candidatura de MORENA y sus aliados en la sección; «rival», la mejor
+  fuera de ellos.
+</p>

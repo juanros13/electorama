@@ -1,0 +1,215 @@
+@let a = analysis();
+@let k = kpis();
+
+<!-- ──────────────────── hallazgos ──────────────────── -->
+<section
+  class="anim-rise rounded-xl border border-primary-200 bg-primary-50/60 p-5 dark:border-primary-500/30 dark:bg-primary-500/10"
+>
+  <header class="mb-3 flex items-center gap-2">
+    <mat-icon svgIcon="lightbulb" class="text-primary-700 icon-size-5 dark:text-primary-300" />
+    <h2 class="text-sm font-semibold">Qué hay que vigilar de {{ year }}</h2>
+  </header>
+  @if (a) {
+    <ol class="flex list-decimal flex-col gap-2 pl-5 text-sm leading-relaxed marker:font-semibold marker:text-primary-700 dark:marker:text-primary-300">
+      @for (f of a.findings; track $index) {
+        <li>{{ f }}</li>
+      }
+    </ol>
+  } @else {
+    <p class="text-sm text-neutral-500">{{ loading() ? 'Cargando el análisis…' : 'Sin análisis para este año.' }}</p>
+  }
+</section>
+
+<!-- ──────────────────── indicadores ──────────────────── -->
+<div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+  <app-stat-card
+    [label]="'Brecha marca – ayuntamiento'"
+    [value]="k ? pp(-k.brandGapPp) : null"
+    icon="trending-down"
+    accent="primary"
+  />
+  <app-stat-card
+    label="Alcaldías perdidas"
+    [value]="k ? k.mayoraltiesLost + ' de ' + k.mayoralties : null"
+    icon="flag"
+    accent="red"
+  />
+  <app-stat-card
+    label="Ganadas por menos de 5 pp"
+    [value]="k ? k.mayoraltiesClose : null"
+    icon="triangle-alert"
+    accent="amber"
+  />
+  <app-stat-card
+    label="Secciones perdidas · competidas"
+    [value]="k ? k.sectionsLost + ' · ' + k.sectionsCompetitive : null"
+    icon="map-pin"
+    accent="secondary"
+  />
+  <app-stat-card
+    label="No votaron (ayuntamiento)"
+    [value]="k ? k.abstention : null"
+    icon="user-x"
+    accent="neutral"
+  />
+</div>
+@if (k) {
+  <p class="-mt-3 text-xs text-neutral-500">
+    Bloque 4T (MORENA, PT y PVEM, juntos o separados): {{ k.brand4tPct | number: '1.1-1' }} % en
+    {{ brandName().toLowerCase() }} contra {{ k.mayor4tPct | number: '1.1-1' }} % en ayuntamientos ·
+    participación en ayuntamientos {{ k.turnout | number: '1.1-1' }} % · de {{ k.sections }} secciones.
+  </p>
+}
+
+<!-- ──────────────────── semáforo por municipio ──────────────────── -->
+<section class="flex flex-col gap-3">
+  <header class="flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <h2 class="text-base font-semibold">Ayuntamientos {{ year }}: semáforo</h2>
+      <p class="text-xs text-neutral-500">
+        Margen de la mejor candidatura del bloque 4T contra la mejor rival fuera de él. Perdido: ganó
+        otro; cerrado: menos de 5 pp; competido: menos de 10 pp.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 text-2xs">
+      @for (s of statuses; track s) {
+        <span class="rounded-full px-2 py-0.5 font-medium" [class]="status[s].chip">{{ status[s].label }}</span>
+      }
+    </div>
+  </header>
+
+  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    @for (m of a?.municipalities ?? []; track m.code) {
+      <article class="relative overflow-hidden rounded-xl border border-neutral-200 bg-card p-4 pl-5 dark:border-neutral-800">
+        <span class="absolute inset-y-0 left-0 w-1.5" [class]="status[m.status].bar"></span>
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="font-semibold">{{ title(m.name) }}</h3>
+          <span class="shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium" [class]="status[m.status].chip">
+            {{ status[m.status].label }}
+          </span>
+        </div>
+
+        <div class="mt-1 text-sm">
+          <span class="text-neutral-500">Ganó </span>
+          <span class="font-medium">{{ m.winner?.label }}</span>
+          <span class="tabular-nums text-neutral-500"> · {{ m.winner?.pct | number: '1.1-1' }} %</span>
+          @if (m.winner?.candidate) {
+            <div class="text-xs break-words text-neutral-500">{{ m.winner?.candidate }}</div>
+          }
+        </div>
+
+        <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <dt class="text-neutral-500">Margen 4T</dt>
+            <dd class="font-semibold tabular-nums" [class.text-red-600]="(m.marginPp ?? 0) < 0">{{ pp(m.marginPp) }}</dd>
+          </div>
+          <div [matTooltip]="brandName() + ' ' + (m.brand4tPct | number: '1.1-1') + ' % · ayuntamiento ' + (m.bloc4tPct | number: '1.1-1') + ' %'">
+            <dt class="text-neutral-500">Vs. marca</dt>
+            <dd class="font-semibold tabular-nums" [class.text-red-600]="(m.brandGapPp ?? 0) >= 20">{{ pp(m.brandGapPp == null ? null : -m.brandGapPp) }}</dd>
+          </div>
+          <div [matTooltip]="a?.previousYear ? 'Bloque 4T contra ' + a?.previousYear : ''">
+            <dt class="text-neutral-500">Vs. {{ a?.previousYear }}</dt>
+            <dd class="font-semibold tabular-nums" [class.text-red-600]="(m.change4tPp ?? 0) <= -5">{{ pp(m.change4tPp) }}</dd>
+          </div>
+        </dl>
+
+        @if (m.alliesSplit || m.allyWinner || (m.status !== 'LOST' && m.rival)) {
+          <div class="mt-3 flex flex-wrap gap-1.5 text-2xs">
+            @if (m.alliesSplit) {
+              <span class="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 font-medium text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                <mat-icon svgIcon="handshake" class="icon-size-3" /> Aliados divididos
+              </span>
+            }
+            @if (m.allyWinner) {
+              <span class="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <mat-icon svgIcon="handshake" class="icon-size-3" /> Ganó un aliado contra MORENA
+              </span>
+            }
+            @if (m.status !== 'LOST' && m.rival) {
+              <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                Rival: {{ m.rival.label }} {{ m.rival.pct | number: '1.1-1' }} %
+              </span>
+            }
+          </div>
+        }
+      </article>
+    }
+  </div>
+</section>
+
+<!-- ──────────────────── brecha con la marca ──────────────────── -->
+<app-chart-card
+  [heading]="'Marca contra candidato: ' + brandName().toLowerCase() + ' y ayuntamiento, bloque 4T'"
+  subtitle="Ordenados de mayor a menor brecha. Donde la barra clara se queda muy abajo, el candidato local no retuvo el voto de la marca."
+  [options]="gapChart()"
+  [emptyText]="loading() ? 'Cargando…' : 'Sin datos.'"
+/>
+
+<div class="grid gap-6 xl:grid-cols-2">
+  <!-- ──────────────────── diputación local ──────────────────── -->
+  <section class="flex flex-col gap-3">
+    <header>
+      <h2 class="text-base font-semibold">Diputación local {{ year }}</h2>
+      <p class="text-xs text-neutral-500">Los {{ a?.localDistricts?.length ?? 0 }} distritos, del margen más corto al más amplio.</p>
+    </header>
+    <app-table-shell [loading]="loading()" [empty]="!loading() && !a?.localDistricts?.length">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 border-b border-neutral-200 bg-card text-left text-2xs tracking-wider text-neutral-500 uppercase dark:border-neutral-800">
+          <tr>
+            <th class="py-2 pr-2 pl-4 font-semibold">Distrito</th>
+            <th class="px-2 py-2 font-semibold">Ganó</th>
+            <th class="px-2 py-2 font-semibold">Rival</th>
+            <th class="py-2 pr-4 pl-2 text-right font-semibold">Margen</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of a?.localDistricts ?? []; track d.code) {
+            <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
+              <td class="py-2 pr-2 pl-4">
+                <div class="flex items-center gap-2">
+                  <span class="size-2 shrink-0 rounded-full" [class]="status[d.status].bar"></span>
+                  <span class="font-medium tabular-nums">{{ d.code | number: '2.0-0' }}</span>
+                  <span class="text-xs text-neutral-500">{{ seat(d.name) }}</span>
+                </div>
+              </td>
+              <td class="px-2 py-2">
+                <div>{{ d.winner?.label }}</div>
+                @if (d.winner?.candidate) {
+                  <div class="text-2xs text-neutral-500">{{ d.winner?.candidate }}</div>
+                }
+              </td>
+              <td class="px-2 py-2">
+                {{ d.rival?.label }}
+                @if (d.allyRunnerUp) {
+                  <span class="ml-1 rounded bg-amber-50 px-1 text-2xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" matTooltip="El segundo lugar no fue el rival: fue otra candidatura del bloque 4T que compitió aparte">2.º fue un aliado</span>
+                }
+              </td>
+              <td class="py-2 pr-4 pl-2 text-right font-semibold tabular-nums" [class.text-red-600]="(d.marginPp ?? 0) < 0">{{ pp(d.marginPp) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </app-table-shell>
+  </section>
+
+  <!-- ──────────────────── rivales ──────────────────── -->
+  <app-chart-card
+    heading="Rivales en ayuntamientos"
+    subtitle="Votos por el emblema de cada partido (sin combinaciones) y candidaturas independientes, en todo el estado."
+    [options]="rivalsChart()"
+    [emptyText]="loading() ? 'Cargando…' : 'Sin datos.'"
+  />
+</div>
+
+@if (a) {
+  <!-- ──────────────────── secciones a vigilar, con la estructura ──────────────────── -->
+  <app-section-watch [sections]="a.sections" [year]="year" />
+}
+
+@if (a) {
+  <p class="text-xs text-neutral-500">
+    Fuentes: ayuntamientos y diputaciones locales, IEPCT ({{ a.mayor.cutLabel }}); marca,
+    {{ a.brand.publisher }} ({{ a.brand.cutLabel }}). El bloque 4T de {{ year }} es MORENA + PT + PVEM;
+    la «mejor candidatura del bloque» puede ser un aliado que compitió aparte.
+  </p>
+}

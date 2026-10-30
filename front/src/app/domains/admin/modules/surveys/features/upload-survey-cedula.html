@@ -1,0 +1,118 @@
+<div class="flex flex-auto flex-col p-6 md:p-10">
+  <!-- Header -->
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div>
+      <div class="text-sm text-neutral-500">Censo 2024</div>
+      <div class="text-3xl font-bold tracking-tight">Subir cédula</div>
+      @if (folio()) {
+        <div class="text-neutral-500">Folio {{ folio() }}</div>
+      }
+    </div>
+    <button
+      matButton="outlined"
+      type="button"
+      (click)="back()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </div>
+
+  @if (ready()) {
+    <div
+      class="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+    >
+      <mat-icon
+        class="align-middle"
+        svgIcon="triangle-alert"
+      />
+      Las cédulas solo se pueden subir <b>una vez</b>. Revisa con detenimiento
+      el archivo.
+    </div>
+
+    <!-- Zona de carga -->
+    <div
+      class="mt-6 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700"
+      (dragover)="onDragOver($event)"
+      (drop)="onDrop($event)"
+    >
+      <mat-icon
+        class="icon-size-12 text-neutral-400"
+        svgIcon="cloud-upload"
+      />
+      <p class="text-neutral-500">Arrastra el archivo aquí o</p>
+      <label
+        matButton="filled"
+        class="cursor-pointer"
+      >
+        Seleccionar archivo
+        <input
+          type="file"
+          class="hidden"
+          accept=".pdf,.png,.jpg,.jpeg"
+          (change)="onSelect($event)"
+        />
+      </label>
+      <p class="text-xs text-neutral-400">PDF, PNG o JPG</p>
+    </div>
+
+    <!-- Previsualización -->
+    @if (file(); as f) {
+      <div
+        class="mt-6 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <mat-icon
+              [class]="isImage() ? 'text-emerald-500' : 'text-red-500'"
+              [svgIcon]="isImage() ? 'image' : 'file'"
+            />
+            <div>
+              <div class="font-medium">{{ f.name }}</div>
+              <div class="text-xs text-neutral-500">{{ sizeLabel() }}</div>
+            </div>
+          </div>
+          <button
+            matIconButton
+            type="button"
+            (click)="clear()"
+          >
+            <mat-icon
+              class="text-red-500"
+              svgIcon="trash-2"
+            />
+          </button>
+        </div>
+
+        @if (preview(); as p) {
+          @if (isImage()) {
+            <img
+              [src]="p"
+              class="mt-4 max-h-96 w-auto rounded-md border border-neutral-200"
+              alt="cédula"
+            />
+          } @else {
+            <iframe
+              [src]="p"
+              class="mt-4 h-96 w-full rounded-md border border-neutral-200"
+              title="cédula"
+            ></iframe>
+          }
+        }
+
+        <div class="mt-4 flex justify-end">
+          <button
+            matButton="filled"
+            type="button"
+            (click)="upload()"
+          >
+            <mat-icon svgIcon="upload" />
+            Subir cédula
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>

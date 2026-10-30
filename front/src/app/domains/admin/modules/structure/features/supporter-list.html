@@ -1,0 +1,200 @@
+@let s = summary();
+@let r = result();
+
+<div class="flex flex-col gap-6 p-6 md:p-8">
+  <app-page-header
+    eyebrow="Estructura · campaña activa"
+    title="Mis convencidos"
+    subtitle="Los de tu puesto y los de todo lo que cuelga de él. Busca por nombre, CURP o teléfono."
+  >
+    <a actions matButton="filled" routerLink="/admin/structure/capture">
+      <mat-icon svgIcon="user-plus" class="icon-size-4" /> Capturar
+    </a>
+  </app-page-header>
+
+  @if (!targetsLoading() && !targets().length) {
+    <p class="text-sm text-neutral-500">No ocupas ningún puesto en la campaña activa.</p>
+  }
+
+  @if (targets().length) {
+    <!-- de qué puesto -->
+    @if (targets().length > 1) {
+      <label class="flex max-w-xl flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Puesto</span>
+        <select
+          class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+          [ngModel]="targetId()"
+          (ngModelChange)="selectTarget($event)"
+        >
+          @for (o of targets(); track o.positionId) {
+            <option [ngValue]="o.positionId">
+              {{ o.own ? '★ ' : '' }}{{ levelLabel(o) }} · {{ o.label }} · {{ o.holderName }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+
+    <!-- la meta arriba -->
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <app-stat-card label="Meta" [value]="s ? s.goal : null" accent="secondary" icon="target" />
+      <app-stat-card
+        label="Convencidos"
+        [value]="s ? s.total : null"
+        [accent]="(progress() ?? 0) >= 100 ? 'emerald' : 'primary'"
+        icon="users"
+      />
+      <app-stat-card
+        label="Avance contra la meta"
+        [value]="progress() !== null ? progress() + '%' : null"
+        [accent]="(progress() ?? 0) >= 100 ? 'emerald' : 'amber'"
+        icon="trending-up"
+      />
+      <app-stat-card
+        label="Te faltan"
+        [value]="missing()"
+        [accent]="missing() === 0 ? 'emerald' : 'neutral'"
+        icon="flag"
+      />
+    </div>
+
+    @if (s && s.goal) {
+      <div class="-mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+        <div
+          class="h-1.5 rounded-full transition-[width] duration-500"
+          [class]="(progress() ?? 0) >= 100 ? 'bg-emerald-500' : 'bg-primary-600'"
+          [style.width.%]="(progress() ?? 0) > 100 ? 100 : progress()"
+        ></div>
+      </div>
+    }
+
+    @if (s) {
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Hoy <b class="tabular-nums">{{ s.today | number: '1.0-0' }}</b></span>
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Últimos 7 días <b class="tabular-nums">{{ s.last7 | number: '1.0-0' }}</b></span>
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Con teléfono <b class="tabular-nums">{{ s.withPhone | number: '1.0-0' }}</b></span>
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Con ubicación <b class="tabular-nums">{{ s.withLocation | number: '1.0-0' }}</b></span>
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Comité <b class="tabular-nums">{{ s.committee | number: '1.0-0' }}</b></span>
+        <span class="rounded-full bg-neutral-100 px-3 py-1 dark:bg-white/5">Rep. de casilla <b class="tabular-nums">{{ s.pollingRep | number: '1.0-0' }}</b></span>
+      </div>
+    }
+
+    <!-- buscar y filtrar -->
+    <div class="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+      <label class="flex min-w-64 flex-1 flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Buscar</span>
+        <input
+          class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+          placeholder="Nombre, CURP o teléfono"
+          [ngModel]="q()"
+          (ngModelChange)="setFilter(q, $event)"
+        />
+      </label>
+      @for (f of [
+        { label: 'Simpatiza', sig: supports },
+        { label: 'Comité', sig: committee },
+        { label: 'Rep. casilla', sig: pollingRep },
+        { label: 'Ubicación', sig: withLocation }
+      ]; track f.label) {
+        <label class="flex flex-col gap-1">
+          <span class="text-2xs tracking-wider text-neutral-500 uppercase">{{ f.label }}</span>
+          <select
+            class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent"
+            [ngModel]="f.sig()"
+            (ngModelChange)="setFilter(f.sig, $event)"
+          >
+            <option value="all">Todos</option>
+            <option value="yes">{{ f.label === 'Ubicación' ? 'Con' : 'Sí' }}</option>
+            <option value="no">{{ f.label === 'Ubicación' ? 'Sin' : 'No' }}</option>
+          </select>
+        </label>
+      }
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Desde</span>
+        <input type="date" class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" [ngModel]="from()" (ngModelChange)="setFilter(from, $event)" />
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-2xs tracking-wider text-neutral-500 uppercase">Hasta</span>
+        <input type="date" class="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-transparent" [ngModel]="to()" (ngModelChange)="setFilter(to, $event)" />
+      </label>
+      @if (filtering()) {
+        <button matButton type="button" (click)="clearFilters()">Limpiar</button>
+      }
+    </div>
+
+    <!-- el listado -->
+    <div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
+      @if (loading()) {
+        <div class="h-0.5 animate-pulse bg-primary-500"></div>
+      }
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-neutral-50/80 text-left text-2xs font-semibold tracking-widest text-neutral-500 uppercase dark:bg-neutral-900/40">
+            <tr>
+              <th class="px-4 py-2.5">Convencido</th>
+              <th class="px-4 py-2.5">Teléfono</th>
+              <th class="px-4 py-2.5">Sección</th>
+              <th class="px-4 py-2.5">Puesto</th>
+              <th class="px-4 py-2.5">Encuesta</th>
+              <th class="px-4 py-2.5 text-right">Capturado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of r.content; track row.id) {
+              <tr class="border-t border-neutral-100 dark:border-neutral-900">
+                <td class="px-4 py-2.5">
+                  <div class="font-medium">{{ row.name || 'sin nombre' }}</div>
+                  <div class="font-mono text-2xs text-neutral-400">{{ row.curp || 'sin CURP' }}</div>
+                </td>
+                <td class="px-4 py-2.5 tabular-nums">{{ row.phone || '—' }}</td>
+                <td class="px-4 py-2.5 tabular-nums">{{ sectionNumber(row) }}</td>
+                <td class="px-4 py-2.5 font-mono text-xs">{{ row.positionLabel }}</td>
+                <td class="px-4 py-2.5">
+                  <div class="flex flex-wrap gap-1">
+                    @if (row.supportsMovement === 'NO') {
+                      <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-2xs text-neutral-600 dark:bg-white/5">no simpatiza</span>
+                    }
+                    @if (row.committee === 'SI') {
+                      <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-2xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">comité</span>
+                    }
+                    @if (row.pollingRep === 'SI') {
+                      <span class="rounded-full bg-secondary-50 px-2 py-0.5 text-2xs text-secondary-700 dark:bg-secondary-500/10 dark:text-secondary-400">rep. casilla</span>
+                    }
+                    @if (row.invitingOthers === 'SI') {
+                      <span class="rounded-full bg-amber-50 px-2 py-0.5 text-2xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">invita</span>
+                    }
+                    @if (mapsLink(row); as link) {
+                      <a class="rounded-full bg-primary-50 px-2 py-0.5 text-2xs text-primary-700 dark:bg-primary-500/10 dark:text-primary-400" [href]="link" target="_blank" rel="noopener">mapa</a>
+                    }
+                  </div>
+                </td>
+                <td class="px-4 py-2.5 text-right text-xs text-neutral-500 tabular-nums">{{ row.captured | date: 'dd/MM/yy HH:mm' }}</td>
+              </tr>
+            } @empty {
+              @if (!loading()) {
+                <tr>
+                  <td colspan="6" class="px-4 py-10 text-center text-neutral-500">
+                    {{ filtering() ? 'Ningún convencido coincide con los filtros.' : 'Todavía no hay convencidos.' }}
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <!-- pie: total y páginas -->
+      <div class="flex items-center justify-between border-t border-neutral-200 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800">
+        <span class="tabular-nums">{{ r.total | number: '1.0-0' }} {{ r.total === 1 ? 'convencido' : 'convencidos' }}</span>
+        <span class="flex items-center gap-2">
+          <button matIconButton class="!size-8 !p-0" aria-label="Página anterior" [disabled]="page() === 0" (click)="page.set(page() - 1)">
+            <mat-icon svgIcon="chevron-left" class="icon-size-4" />
+          </button>
+          <span class="tabular-nums">{{ page() + 1 }} de {{ pages() }}</span>
+          <button matIconButton class="!size-8 !p-0" aria-label="Página siguiente" [disabled]="page() + 1 >= pages()" (click)="page.set(page() + 1)">
+            <mat-icon svgIcon="chevron-right" class="icon-size-4" />
+          </button>
+        </span>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,35 @@
+{
+  "production": false,
+
+  "url_keycloak": "http://localhost:8080",
+  "keycloak_realm": "electorama-realm",
+  "keycloak_client": "electorama-front",
+  "keycloak_secret": "",
+
+  "url_user": "http://localhost:8090/api/user",
+  "url_user_profile": "http://localhost:8090/user/api/v1/userprofile",
+  "url_calendar": "http://localhost:8090/api/calendar/api/v1/calendar",
+  "url_auth_google": "http://localhost:8090/calendar",
+  "url_geo_elections": "http://localhost:8090/api/elections",
+  "url_geography": "http://localhost:8090/api/geography",
+  "url_followers": "http://localhost:8090/api/followers",
+  "url_structure": "http://localhost:8090/api/structure",
+  "url_electoral_history": "http://localhost:8090/api/electoral-history",
+  "url_visits": "http://localhost:8090/api/visits",
+  "url_canvas_anda_walls": "http://localhost:8090/api/canvasAndWalls",
+  "url_citizen_issues": "http://localhost:8090/api/citizen-issues",
+  "url_surveys": "http://localhost:8090/api/survey",
+  "url_coordinators": "http://localhost:8090/api/survey",
+  "url_survey_catalogs": "http://localhost:8090/api/survey/catalogs",
+  "url_survey_sections": "http://localhost:8090/api/geography",
+  "url_survey_annex": "http://localhost:8090/api/survey",
+  "url_survey_report": "http://localhost:8090/api/survey/surveyReport",
+  "url_survey_summary": "http://localhost:8090/api/survey",
+  "url_personEntity": "http://localhost:8090/api/survey",
+  "url_log": "http://localhost:8090/api/logfile",
+  "url_cedula": "http://localhost:8090/api/survey",
+  "url_validacion": "https://validacion.nucleostaging.net/api/validacion",
+
+  "url_geoserver": "https://geoserver.nucleo.rocks/geoserver/serveros/wms/",
+  "url_geoserver_ows": "https://geoserver.nucleo.rocks/geoserver/serveros/ows"
+}

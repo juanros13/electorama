@@ -1,0 +1,101 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Censo 2024"
+    title="Asignación de folios y equipos"
+  />
+
+  <!-- Búsqueda -->
+  <mat-form-field class="w-full">
+    <mat-label>Buscar (nombre o dispositivo)</mat-label>
+    <input
+      matInput
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+      maxlength="200"
+    />
+    <mat-icon
+      matSuffix
+      svgIcon="search"
+    />
+  </mat-form-field>
+
+  <!-- Tabla -->
+  <div
+    class="relative overflow-auto rounded-xl border border-neutral-200 dark:border-neutral-800"
+  >
+    @if (loading()) {
+      <div
+        class="absolute inset-x-0 top-0 h-1 animate-pulse bg-primary-500"
+      ></div>
+    }
+    <table class="w-full text-sm">
+      <thead class="bg-neutral-50 text-left dark:bg-neutral-800">
+        <tr>
+          <th class="p-3">Dispositivo</th>
+          <th class="p-3">Nombre</th>
+          <th class="p-3">IDs de usuario</th>
+          <th class="p-3 text-center">Equipo</th>
+          <th class="p-3 text-center">Folios</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (u of filtered(); track u.id) {
+          <tr
+            class="border-t border-neutral-200 align-top dark:border-neutral-800"
+          >
+            <td class="p-3">{{ u.deviceId }}</td>
+            <td class="p-3">{{ u.name }}</td>
+            <td class="p-3">
+              <div class="flex flex-wrap gap-1">
+                @for (sec of u.surveyUserSection ?? []; track sec.id) {
+                  <span
+                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                    [class]="sec.isOwner ? 'bg-emerald-600' : 'bg-amber-600'"
+                  >
+                    {{ sec.sectionNumber }}
+                    @if (!sec.isOwner) {
+                      <button
+                        class="cursor-pointer"
+                        (click)="removeSection(u, sec)"
+                        aria-label="Quitar"
+                      >
+                        <mat-icon
+                          class="icon-size-4 text-white"
+                          svgIcon="x"
+                        />
+                      </button>
+                    }
+                  </span>
+                }
+              </div>
+            </td>
+            <td class="p-3 text-center">
+              <button
+                matButton="tonal"
+                type="button"
+                (click)="openAssignSection(u)"
+              >
+                <mat-icon svgIcon="users" />
+                Equipo
+              </button>
+            </td>
+            <td class="p-3 text-center">
+              <button
+                matButton="tonal"
+                type="button"
+                (click)="openAssignFolio(u)"
+              >
+                <mat-icon svgIcon="circle-plus" />
+                Folios
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (!loading() && filtered().length === 0) {
+      <div class="p-8 text-center text-neutral-500">Sin usuarios.</div>
+    }
+  </div>
+</div>

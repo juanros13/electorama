@@ -1,0 +1,78 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Avance de censo"
+    [title]="munName()"
+  >
+    <button
+      actions
+      matButton="outlined"
+      type="button"
+      (click)="back()"
+    >
+      <mat-icon svgIcon="arrow-left" />
+      Regresar
+    </button>
+  </app-page-header>
+
+  <!-- Estadísticas -->
+  @if (stat(); as s) {
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+      >
+        <div class="text-xs text-neutral-500">Por censar</div>
+        <div class="text-2xl font-bold text-amber-600">
+          {{ s.homesToBeCensuced | number }}
+        </div>
+      </div>
+      <div
+        class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+      >
+        <div class="text-xs text-neutral-500">Censadas</div>
+        <div class="text-2xl font-bold text-emerald-600">
+          {{ s.folioCaptured | number }}
+        </div>
+      </div>
+      <div
+        class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+      >
+        <div class="text-xs text-neutral-500">
+          Avance vs meta ({{ s.goalHolmes | number }})
+        </div>
+        <div class="mt-1 flex items-center gap-2">
+          <div
+            class="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+          >
+            <div
+              class="h-full rounded-full"
+              [class]="
+                percent() >= 80
+                  ? 'bg-emerald-500'
+                  : percent() >= 40
+                    ? 'bg-amber-500'
+                    : 'bg-red-500'
+              "
+              [style.width.%]="percent()"
+            ></div>
+          </div>
+          <span class="text-sm font-bold">{{ percent() }}%</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Mapa de casas censadas -->
+  <div class="relative">
+    @if (loading()) {
+      <div
+        class="absolute top-3 left-1/2 z-[1000] -translate-x-1/2 rounded-full bg-white px-4 py-1.5 text-sm shadow dark:bg-neutral-800"
+      >
+        Cargando ubicaciones…
+      </div>
+    }
+    <div
+      #mapEl
+      class="h-[calc(100vh-22rem)] w-full rounded-xl border border-neutral-200 dark:border-neutral-800"
+    ></div>
+  </div>
+</div>

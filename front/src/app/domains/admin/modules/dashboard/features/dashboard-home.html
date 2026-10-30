@@ -1,0 +1,56 @@
+<div class="flex flex-auto flex-col gap-6 p-6">
+  <app-page-header
+    eyebrow="Panel"
+    [title]="greeting() ? 'Bienvenido, ' + greeting() : 'Bienvenido'"
+    subtitle="Resumen general de la campaña"
+  />
+
+  <!-- Métricas -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <app-stat-card
+      label="Total de visitas"
+      [value]="totalVisits()"
+      icon="footprints"
+      accent="primary"
+    />
+    <app-stat-card
+      label="Meta"
+      [value]="meta()"
+      icon="target"
+      accent="secondary"
+    />
+  </div>
+
+  <!-- Lienzos y murales por categoría -->
+  @if (canvasResume().length) {
+    <section class="anim-rise anim-delay-3">
+      <h2 class="font-display text-xl font-semibold tracking-tight">
+        Lienzos y murales por categoría
+      </h2>
+      <div class="mt-3 flex flex-col gap-3">
+        @for (item of canvasResume(); track item.id) {
+          <div
+            class="bg-card rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-medium">{{ item.category }}</span>
+              <span class="text-sm text-neutral-500">
+                {{ item.total | number }} / {{ item.goal | number }} ({{
+                  item.percent / 100 | percent
+                }})
+              </span>
+            </div>
+            <div
+              class="mt-2 h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+            >
+              <div
+                class="h-full rounded-full bg-primary-600 transition-[width] duration-500"
+                [style.width.%]="item.percent > 100 ? 100 : item.percent"
+              ></div>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+</div>
