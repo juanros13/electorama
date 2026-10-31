@@ -19,7 +19,7 @@ Después, como `electorama`, cada migración en su propia transacción (usan `SE
 ```bash
 for f in infra/db/migrations/V{1,2,3}__*.sql; do psql -d electorama -v ON_ERROR_STOP=1 -1 -f "$f"; done
 LEGACY_PGPORT=5432 PGUSER=electorama PGDATABASE=electorama ./infra/db/reference/load-reference.sh
-for f in infra/db/migrations/V{4,5,6}__*.sql; do psql -d electorama -v ON_ERROR_STOP=1 -1 -f "$f"; done
+for f in infra/db/migrations/V{4,5,6,7}__*.sql; do psql -d electorama -v ON_ERROR_STOP=1 -1 -f "$f"; done
 ```
 
 V4 y V5 van **después** de `load-reference.sh`, porque le agregan el estado a lo que ya se copió de
@@ -30,6 +30,7 @@ Tabasco. No hay `flyway_schema_history`: si después se usa Flyway, hay que hace
 | V4 `territory_states` | `structure.territory` de cualquier estado: código único por `(state_geo_id, code)` |
 | V5 `electoral_history_states` | `state_id` en el historial electoral (ver abajo) |
 | V6 `campaign_goal` | `structure.campaign.goal_percentage` (61 por default) |
+| V7 `compat_campaign` | las vistas compat (users_seccions, followers) escriben en la campaña activa de la sección |
 
 ## 2. Datos de referencia nacionales
 

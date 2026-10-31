@@ -64,9 +64,19 @@ Al guardar los niveles, msvc-structure llama `POST /v2/roles/ensure` de msvc-use
 
 El rol por defecto es `<CAMPAÑA>_<CÓDIGO>`, p.ej. `TABASCO_2030_COORDINADOR_MUNICIPAL`.
 
+## Flujo 2024 (vistas compat)
+
+Las altas por `users.users_seccions` y `followers.followers` (msvc-users, msvc-followers) van a la
+estructura Principal o Alterna de la **campaña ACTIVE que contiene la sección** (la más reciente si hay
+varias; V7, `structure.active_structure`). Sin campaña activa, o si la campaña no tiene esa rama, el alta
+se rechaza. Un puesto que no es la cúspide y del que no se conoce el superior cuelga del único puesto
+vigente del nivel de arriba que contiene su territorio (`structure.compat_parent`); si hay cero o varios,
+también se rechaza.
+
 ## Pruebas
 
-- **SQL:** `infra/db/tests/T8__campaign_levels.sql` (`psql -d electorama -f …`, en `BEGIN … ROLLBACK`).
+- **SQL:** `infra/db/tests/T8__campaign_levels.sql` y `T9__compat_campaign.sql` (`psql -d electorama -f …`,
+  en `BEGIN … ROLLBACK`).
 - **Back:**
   - `electorama-msvc-structure`: `LevelRulesTest` y `BuildServiceLevelsTest`.
   - `electorama-msvc-users`: `AccountServiceTest` y `ApiSecurityTest`.
@@ -85,7 +95,6 @@ El rol por defecto es `<CAMPAÑA>_<CÓDIGO>`, p.ej. `TABASCO_2030_COORDINADOR_MU
 - **Reportes y tableros por nivel sin función** (p.ej. avance por coordinador distrital). Hoy esos puestos
   aparecen en el organigrama, pero los reportes agrupan por función.
 - **Vacantes de niveles que no van sobre sección:** hoy se crean uno por uno.
-- **Funciones compat de users/followers** (flujo 2024): siguen eligiendo estructura sólo por tipo.
 - **Llamadas sin `campaignId`:** el tablero, el catálogo territorial y el desglose municipal ya mandan
   la campaña de trabajo (y la cerrada de referencia es la del mismo estado). Lo que todavía no la manda
   (vigilancia de secciones, captura por puestos del usuario) cae en la ACTIVE más reciente de
