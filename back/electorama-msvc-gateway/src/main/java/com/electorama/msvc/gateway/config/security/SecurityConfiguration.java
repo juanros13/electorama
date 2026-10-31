@@ -37,8 +37,9 @@ public class SecurityConfiguration {
         .and()
         .csrf()
         .disable()
-        .oauth2Login()
-        .and()
+        // sólo resource server: sin token (o vencido) responde 401. Con oauth2Login respondía 302 al
+        // login de Keycloak y el navegador lo veía como error de CORS en vez de un 401 que el front
+        // pueda renovar.
         .oauth2ResourceServer()
         .jwt();
     return http.build();
