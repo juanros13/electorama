@@ -204,10 +204,11 @@ public class CaptureRepository {
   }
 
   /**
-   * Dónde puede dejar convencidos quien captura en la campaña activa: sus puestos y los puestos con
-   * titular de su rama (no las vacantes: el convencido cuelga de alguien).
+   * Dónde puede dejar convencidos quien captura en las campañas activas (o sólo en {@code
+   * campaignId}): sus puestos y los puestos con titular de su rama (no las vacantes: el convencido
+   * cuelga de alguien).
    */
-  public List<CaptureTarget> targets(String authId) {
+  public List<CaptureTarget> targets(String authId, Long campaignId) {
     return jdbc.query(
         "WITH RECURSIVE mine AS ("
             + "   SELECT p.id FROM position p"
@@ -215,6 +216,7 @@ public class CaptureRepository {
             + "                      AND upper(a.validity) IS NULL AND a.auth_id = :auth"
             + "     JOIN structure s ON s.id = p.structure_id"
             + "     JOIN campaign c ON c.id = s.campaign_id AND c.status = 'ACTIVE'"
+            + "                    AND (CAST(:campaign AS bigint) IS NULL OR c.id = :campaign)"
             + "    WHERE p.valid_to IS NULL),"
             + " tree AS ("
             + "   SELECT id, true AS own FROM mine"
@@ -238,7 +240,7 @@ public class CaptureRepository {
             + "           par.municipality_geo_id"
             + "  ORDER BY bool_or(tr.own) DESC, coalesce(p.section_key, t.code)"
             + "  LIMIT 1000",
-        Map.of("auth", authId),
+        new MapSqlParameterSource("auth", authId).addValue("campaign", campaignId),
         (rs, i) ->
             new CaptureTarget(
                 rs.getLong(1),

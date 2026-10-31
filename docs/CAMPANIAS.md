@@ -19,7 +19,9 @@ si no hay otra activa en el mismo territorio. Una cerrada ya no se edita.
   único dentro de su estado.
 - El estado de la campaña (`stateGeoId` en `CampaignSummary`) es el que usan el catálogo territorial,
   el organigrama, la captura y el histórico electoral. La pantalla trabaja con la **campaña de
-  trabajo** (`structure/data/working-campaign.ts`): la que se eligió en el organigrama o la activa.
+  trabajo** (`structure/data/working-campaign.ts`): se elige en el selector **Campaña de trabajo**,
+  arriba de todas las vistas de Estructura (`structure/ui/campaign-bar.ts`), y se recuerda en el
+  navegador. Si no se ha elegido, es la activa. Cambiarla vuelve a cargar la vista abierta.
 - **% de meta** (`campaign.goal_percentage`, 61 por default): se guarda con los datos generales y el
   botón *Aplicar a las secciones* lo copia a todas las secciones vigentes del territorio
   (`PATCH /api/geography/catalog/goal`), recalculando meta = LN × %. Después se puede seguir
@@ -98,9 +100,9 @@ El rol por defecto es `<CAMPAÑA>_<CÓDIGO>`, p.ej. `TABASCO_2030_COORDINADOR_MU
 - **Reportes y tableros por nivel sin función** (p.ej. avance por coordinador distrital). Hoy esos puestos
   aparecen en el organigrama, pero los reportes agrupan por función.
 - **Vacantes de niveles que no van sobre sección:** hoy se crean uno por uno.
-- **Llamadas sin `campaignId`:** el tablero, el catálogo territorial y el desglose municipal ya mandan
-  la campaña de trabajo (y la cerrada de referencia es la del mismo estado). Lo que todavía no la manda
-  (vigilancia de secciones, captura por puestos del usuario) cae en la ACTIVE más reciente de
+- **Llamadas sin `campaignId`:** el tablero, el catálogo territorial, el desglose municipal, la captura y
+  el listado de convencidos ya mandan la campaña de trabajo (y la cerrada de referencia es la del mismo
+  estado). La vigilancia de secciones todavía no: cae en la ACTIVE más reciente de
   `CampaignService.resolve()`.
 - **Tabasco fijo todavía** en el análisis de convencidos 2024 (`supporters-analysis`), la vigilancia de
   secciones (`section-watch`) y los mapas (`TABASCO_CENTER`, `cve_ent=27`).

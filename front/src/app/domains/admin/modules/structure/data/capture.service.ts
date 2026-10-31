@@ -131,8 +131,11 @@ export class CaptureService {
     return `${this.appConfig.config.url_structure}/memberships`;
   }
 
-  getTargets(): Observable<CaptureTarget[]> {
-    return this.http.get<CaptureTarget[]>(`${this.base}/capture-targets`);
+  /** Con campaña, sólo los puestos de esa campaña; sin ella, los de todas las activas. */
+  getTargets(campaignId?: number): Observable<CaptureTarget[]> {
+    const params =
+      campaignId == null ? new HttpParams() : new HttpParams().set('campaignId', campaignId);
+    return this.http.get<CaptureTarget[]>(`${this.base}/capture-targets`, { params });
   }
 
   capture(request: CaptureRequest): Observable<Captured> {

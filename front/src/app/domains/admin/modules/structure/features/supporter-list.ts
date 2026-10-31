@@ -25,6 +25,7 @@ import {
   SupporterPage,
   SupporterSummary,
 } from '../data/capture.service';
+import { WorkingCampaign } from '../data/working-campaign';
 
 const PAGE_SIZE = 25;
 
@@ -43,6 +44,7 @@ type YesNoAll = 'all' | 'yes' | 'no';
 })
 export default class SupporterList {
   private api = inject(CaptureService);
+  private working = inject(WorkingCampaign);
   /** Los nombres de nivel de la campaña activa (V3). */
   private levelCatalog = inject(LevelCatalog);
   private destroyRef = inject(DestroyRef);
@@ -100,7 +102,7 @@ export default class SupporterList {
   constructor() {
     this.levelCatalog.load();
     this.api
-      .getTargets()
+      .getTargets(this.working.campaign()?.id)
       .pipe(
         catchError(() => {
           showError('No se pudo saber de qué puestos puedes ver convencidos');

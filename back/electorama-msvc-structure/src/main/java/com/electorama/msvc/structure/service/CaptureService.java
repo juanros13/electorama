@@ -49,11 +49,11 @@ public class CaptureService {
   private final BranchGuard branch;
   private final GeographyClient geography;
 
-  /** Dónde puede dejar convencidos quien llama. */
+  /** Dónde puede dejar convencidos quien llama; con campaña, sólo en esa (si no, en las activas). */
   @Transactional(readOnly = true)
-  public List<CaptureTarget> targets() {
+  public List<CaptureTarget> targets(Long campaignId) {
     String authId = branch.callerAuthId();
-    return authId == null ? List.of() : capture.targets(authId);
+    return authId == null ? List.of() : capture.targets(authId, campaignId);
   }
 
   @Transactional
@@ -216,7 +216,7 @@ public class CaptureService {
       List<CaptureTarget> own =
           authId == null
               ? List.of()
-              : capture.targets(authId).stream().filter(CaptureTarget::own).toList();
+              : capture.targets(authId, null).stream().filter(CaptureTarget::own).toList();
       if (own.size() != 1) {
         throw StructureException.badRequest(
             own.isEmpty()

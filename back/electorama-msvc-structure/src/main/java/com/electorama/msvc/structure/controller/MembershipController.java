@@ -97,8 +97,8 @@ public class MembershipController {
   /** Dónde puede dejar convencidos quien llama: sus puestos y los de su rama con titular. */
   @GetMapping("/capture-targets")
   @PreAuthorize("@branch.isAdmin() or @branch.isStructureMember()")
-  public List<CaptureTarget> captureTargets() {
-    return captureService.targets();
+  public List<CaptureTarget> captureTargets(@RequestParam(required = false) Long campaignId) {
+    return captureService.targets(campaignId);
   }
 
   @GetMapping("/{id}")

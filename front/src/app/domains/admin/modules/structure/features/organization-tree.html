@@ -7,25 +7,6 @@
     <div actions class="flex flex-wrap items-center gap-2">
     <div
       role="tablist"
-      aria-label="Campaña"
-      class="flex items-center gap-0.5 rounded-full border border-neutral-200 p-1 dark:border-neutral-800"
-    >
-      @for (c of campaigns(); track c.id) {
-        <button
-          matButton
-          role="tab"
-          [attr.aria-selected]="campaign()?.id === c.id"
-          class="!rounded-full !px-4"
-          [class]="campaign()?.id === c.id ? '!bg-neutral-800 !text-white dark:!bg-neutral-200 dark:!text-neutral-900' : '!text-neutral-500'"
-          [matTooltip]="c.status === 'CLOSED' ? 'Campaña cerrada: sólo consulta' : 'Campaña en curso'"
-          (click)="changeCampaign(c)"
-        >
-          {{ c.year }}
-        </button>
-      }
-    </div>
-    <div
-      role="tablist"
       aria-label="Estructura"
       class="flex items-center gap-0.5 rounded-full border border-neutral-200 p-1 dark:border-neutral-800"
     >
@@ -60,7 +41,7 @@
         <mat-icon svgIcon="info" class="mt-px shrink-0 icon-size-3.5" />
         {{ c.name }} arranca sin estructura: todavía no hay {{ (topLevel()?.namePlural ?? 'puestos').toLowerCase() }}.
         @if (c.year) {
-          La de {{ c.year - 3 }} se consulta en su pestaña.
+          La de {{ c.year - 3 }} se consulta eligiéndola en «Campaña de trabajo».
         }
       </p>
     }

@@ -18,41 +18,48 @@ import { Routes } from '@angular/router';
  *   canvasandwallsgoals   → placeholder
  */
 const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'organization' },
   {
-    path: 'dashboard',
-    canMatch: [canSee('structure.dashboard')],
-    loadComponent: () => import('./features/campaign-dashboard'),
-  },
-  {
-    path: 'campaigns',
-    canMatch: [canSee('structure.campaigns')],
-    loadComponent: () => import('./features/campaign-config'),
-  },
-  {
-    path: 'organization',
-    canMatch: [canSee('structure.organization')],
-    loadComponent: () => import('./features/organization-tree'),
-  },
-  {
-    path: 'supporters',
-    canMatch: [canSee('structure.supporters')],
-    loadComponent: () => import('./features/supporter-list'),
-  },
-  {
-    path: 'capture',
-    canMatch: [canSee('structure.capture')],
-    loadComponent: () => import('./features/supporter-capture'),
-  },
-  {
-    path: 'supporters-2024',
-    canMatch: [canSee('structure.supporters2024')],
-    loadComponent: () => import('./features/supporters-analysis'),
-  },
-  {
-    path: 'territory',
-    canMatch: [canSee('structure.territory')],
-    loadComponent: () => import('./features/territory-catalog'),
+    // la barra de campaña de trabajo va arriba de todas las vistas
+    path: '',
+    loadComponent: () => import('./ui/campaign-bar'),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'organization' },
+      {
+        path: 'dashboard',
+        canMatch: [canSee('structure.dashboard')],
+        loadComponent: () => import('./features/campaign-dashboard'),
+      },
+      {
+        path: 'campaigns',
+        canMatch: [canSee('structure.campaigns')],
+        loadComponent: () => import('./features/campaign-config'),
+      },
+      {
+        path: 'organization',
+        canMatch: [canSee('structure.organization')],
+        loadComponent: () => import('./features/organization-tree'),
+      },
+      {
+        path: 'supporters',
+        canMatch: [canSee('structure.supporters')],
+        loadComponent: () => import('./features/supporter-list'),
+      },
+      {
+        path: 'capture',
+        canMatch: [canSee('structure.capture')],
+        loadComponent: () => import('./features/supporter-capture'),
+      },
+      {
+        path: 'supporters-2024',
+        canMatch: [canSee('structure.supporters2024')],
+        loadComponent: () => import('./features/supporters-analysis'),
+      },
+      {
+        path: 'territory',
+        canMatch: [canSee('structure.territory')],
+        loadComponent: () => import('./features/territory-catalog'),
+      },
+    ],
   },
 ];
 

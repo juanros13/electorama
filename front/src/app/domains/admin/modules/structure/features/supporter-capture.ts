@@ -170,7 +170,7 @@ export default class SupporterCapture {
   constructor() {
     this.levelCatalog.load();
     this.captureApi
-      .getTargets()
+      .getTargets(this.working.campaign()?.id)
       .pipe(
         catchError(() => {
           showError('No se pudo saber dónde puedes capturar');
