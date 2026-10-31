@@ -20,7 +20,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   coverageClass,
-  DEFAULT_GOAL_PERCENTAGE,
   requiredMobilizers,
   requiredPromoters,
 } from '../data/campaign-rules';

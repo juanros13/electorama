@@ -7,6 +7,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FollowerMarkRepository extends JpaRepository<FollowerMarkEntity, Long> {
-
-  List<FollowerMarkEntity> findByPollingBoothIdIn(List<Long> pollingBooths);
 }

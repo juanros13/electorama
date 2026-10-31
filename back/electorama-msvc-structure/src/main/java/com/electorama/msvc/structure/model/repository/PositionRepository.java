@@ -421,6 +421,23 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
       @Param("authId") String authId, @Param("campaignId") Long campaignId);
 
   /**
+   * El titular del puesto superior al de una cuenta en la campaña: lo que antes era {@code
+   * users.auth_id_reference}. Si la cuenta tiene varios puestos, manda el del nivel más bajo.
+   */
+  @Query(
+      value =
+          "SELECT pa.auth_id FROM assignment a"
+              + " JOIN position p ON p.id = a.position_id AND p.valid_to IS NULL"
+              + "               AND p.structure_id IN (SELECT id FROM structure WHERE campaign_id = :campaignId)"
+              + " JOIN campaign_level l ON l.id = p.level_id"
+              + " JOIN assignment pa ON pa.position_id = p.parent_position_id AND pa.role = 'HOLDER'"
+              + "                   AND upper(pa.validity) IS NULL"
+              + " WHERE a.auth_id = :authId AND a.role = 'HOLDER' AND upper(a.validity) IS NULL"
+              + " ORDER BY l.rank DESC, p.id LIMIT 1",
+      nativeQuery = true)
+  Optional<String> superiorOf(@Param("authId") String authId, @Param("campaignId") Long campaignId);
+
+  /**
    * Cierra el puesto. No se borra nunca.
    *
    * <p>{@code clock_timestamp()} y no {@code now()}: dentro de una transacción {@code now()} es

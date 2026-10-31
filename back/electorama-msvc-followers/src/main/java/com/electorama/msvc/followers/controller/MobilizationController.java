@@ -21,8 +21,6 @@ public class MobilizationController {
 
   @Autowired private MobilizationService mobilizationService;
 
-  @Autowired private ScheduleService scheduleService;
-
   @GetMapping("/getStateMobilization")
   public ResponseEntity<?> getStateMobilization(@RequestHeader("X-Auth-Id") String authIdHeader) {
     Map<String, Object> response = new HashMap<>();

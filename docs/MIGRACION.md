@@ -33,7 +33,9 @@ servicios externos que siguen vivos: GeoServer (`geoserver.nucleo.rocks`), valid
 
 **Ahora** hay una base `electorama` con un schema por servicio, y los schemas se cruzan directo:
 
-- `followers.followers` es una vista sobre `structure_compat.followers`.
+- `followers.followers` y `followers.promoters` son vistas de **lectura** sobre `structure_compat` (más la
+  marca de voto del día de la elección, que se escribe por `followers_update`). Desde V8 ya no hay altas ni
+  bajas por esas vistas, ni `users.users_seccions`, ni el schema `users_compat`.
 - `users` y `followers` leen `structure.*`.
 - `structure` lee `geography.*`.
 
@@ -45,6 +47,8 @@ contenedor `flyway`) y no una por servicio, porque habría ciclos entre servicio
 | `V0__extensions.sql` | postgis, unaccent, btree_gist (en `public`) |
 | `V1__baseline.sql` | Schema completo |
 | `V2__seed_catalogs.sql` | Catálogos de configuración: menús/roles, tipos y estados de elecciones/casillas, partidos, campaña, estructura y 1,217 territorios |
+| `V3`–`V7` | Campañas multi-estado y niveles (ver `docs/LOCAL.md` y `docs/CAMPANIAS.md`) |
+| `V8__drop_compat_2024.sql` | Fase 5: quita la capa compat del flujo 2024 (ver abajo) |
 
 ### Cómo se generó V1
 

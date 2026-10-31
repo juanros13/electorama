@@ -64,14 +64,17 @@ Al guardar los niveles, msvc-structure llama `POST /v2/roles/ensure` de msvc-use
 
 El rol por defecto es `<CAMPAÑA>_<CÓDIGO>`, p.ej. `TABASCO_2030_COORDINADOR_MUNICIPAL`.
 
-## Flujo 2024 (vistas compat)
+## Alta de convencidos y del día de la elección
 
-Las altas por `users.users_seccions` y `followers.followers` (msvc-users, msvc-followers) van a la
-estructura Principal o Alterna de la **campaña ACTIVE que contiene la sección** (la más reciente si hay
-varias; V7, `structure.active_structure`). Sin campaña activa, o si la campaña no tiene esa rama, el alta
-se rechaza. Un puesto que no es la cúspide y del que no se conoce el superior cuelga del único puesto
-vigente del nivel de arriba que contiene su territorio (`structure.compat_parent`); si hay cero o varios,
-también se rechaza.
+- **Convencidos:** se capturan en msvc-structure (`POST /memberships`): en el front desde
+  *Estructura › Captura* y en la app desde su pantalla de captura (`/memberships/capture-targets`).
+- **Ámbito de una cuenta en la app** (visitas, bardas): `GET /positions/scope/{authId}` y su superior
+  con `GET /positions/holders/{authId}/superior`, ambos sobre la campaña activa.
+- **Día de la elección:** msvc-followers sólo conserva la movilización, la marca de voto
+  (`/followers/updateVoteFlag*`, `followersMark`) y el listado de promotores. Lee las vistas
+  `followers.followers` / `followers.promoters`, que sólo muestran las membresías heredadas de 2024
+  (`legacy_id`), y su marca de voto apunta a la campaña activa de la sección (V7,
+  `structure.active_structure`). La capa compat de altas se quitó en V8.
 
 ## Pruebas
 

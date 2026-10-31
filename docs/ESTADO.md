@@ -135,8 +135,10 @@ survey. Los manifests de kustomize viven en el mismo repo.
 **Lo nuevo:** `electorama-msvc-structure`, el microservicio del modelo de estructura, commiteado en
 `feat/msvc-structure` junto con los 20 scripts de la migración y el port de seis facades de
 `msvc-followers` a su API. El detalle vive en la nota de Obsidian
-`nucleo-dash-propuesta-estructura`. Fases 0–3 completas en local; la 4 a medias (faltan los cinco
-servicios de escritura de followers y `msvc-users`); la 5 escrita con guardas y sin ejecutar.
+`nucleo-dash-propuesta-estructura`. Fases 0–4 completas. La 5 se hizo en `V8__drop_compat_2024.sql` (oct-2026):
+la captura y los puestos sólo viven en msvc-structure; msvc-followers queda reducido al día de la
+elección (movilización, marca de voto, `followersMark`, listado de promotores) y msvc-users ya no
+expone `userSeccion` (la app usa `/positions/scope` y `/positions/holders/{authId}/superior`).
 
 **Sin commitear:** `electorama-msvc-visits/src/main/resources/application.yml` apuntado a Postgres
 local. **Es un override de desarrollo — no commitear.**

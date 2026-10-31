@@ -9,19 +9,18 @@ import 'package:electorama_app/infrastructure/mappers/geo/municipality_mapper.da
 import 'package:electorama_app/infrastructure/mappers/geo/section_mapper.dart';
 import 'package:electorama_app/infrastructure/models/geo/geo_locality_response.dart';
 import 'package:electorama_app/infrastructure/models/geo/geo_municipality_response.dart';
-import 'package:electorama_app/infrastructure/models/geo/geo_section_db.dart';
 
 class DashGeoDatasouce extends GeoDatasaource{
-  late final Dio dioUser;
+  late final Dio dioStructure;
   late final Dio dioGeography;
   final String accessToken;
 
 
   DashGeoDatasouce({
     required this.accessToken
-  }): dioUser = Dio(
+  }): dioStructure = Dio(
     BaseOptions(
-      baseUrl: Environment.urlUser,
+      baseUrl: Environment.urlStructure,
       headers: {
         'Authorization': 'Bearer $accessToken'
       }
@@ -38,12 +37,12 @@ class DashGeoDatasouce extends GeoDatasaource{
   @override
   Future<List<Section>> loadSections(String authId) async{
     try {
-      final response = await dioUser.get('/v1.0.0/userSeccion/$authId');
+      // las secciones que cubre la cuenta en la campaña activa (msvc-structure)
+      final response = await dioStructure.get('/positions/scope/$authId');
       if (response.statusCode == 200) {
-        final seccionList = geoSectionResponseFromJson(response.data);
-        final List<Section> sections = seccionList.map(
-          (section) {
-            return SectionMapper.sectionDBToEntity(section);
+        final List<Section> sections = (response.data as List).map(
+          (scope) {
+            return SectionMapper.scopeToEntity(scope, authId);
           }
         ).toList();
         return sections;
@@ -60,7 +59,6 @@ class DashGeoDatasouce extends GeoDatasaource{
     try {
       final response = await dioGeography.get('/seccion/$seccionId');
       if (response.statusCode == 200) {
-        //final municipality = geoSectionResponseFromJson(response.data);
         final municipalityResponse = GeoMunicipalityResponse.fromJson(response.data);
         final Municipality municipality = MunicipalityMapper.municipalityResponseToEntity(municipalityResponse);
         return municipality;

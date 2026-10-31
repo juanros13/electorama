@@ -1,5 +1,4 @@
 import { AppConfigService } from '@/app/core/config/app-config';
-import { ProfileData, UpdateDataProfile } from '@/app/core/data/model/ProfileType';
 import { AuthUtils } from '@/app/core/auth/auth.utils';
 import { User } from '@/app/core/user/user.types';
 import { HttpClient } from '@angular/common/http';
@@ -48,20 +47,5 @@ export class UserService {
         return this.http
             .get<User>(`${this.appConfig.config.url_user}/profile`)
             .pipe(tap((user) => this._user.set(user)));
-    }
-
-    getProfileData(): Observable<ProfileData> {
-        const url = `${this.appConfig.config.url_user}/v1.0.0/profileDB`;
-        return this.http.get<ProfileData>(url);
-    }
-
-    updateProfile(user: UpdateDataProfile, authId: string): Observable<any> {
-        const url = `${this.appConfig.config.url_user}/v1.0.0/update/${authId}`;
-        return this.http.put(url, user);
-    }
-
-    disableUser(authId: string, statusUser: string): Observable<any> {
-        const url = `${this.appConfig.config.url_user}/v1.0.0/updateStatus/${authId}/${statusUser}`;
-        return this.http.put(url, null);
     }
 }

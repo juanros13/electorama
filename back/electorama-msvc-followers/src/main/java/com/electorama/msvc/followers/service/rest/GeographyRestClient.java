@@ -16,24 +16,9 @@ import org.springframework.web.bind.annotation.PathVariable;
     url = "${app.config.geography-url}")
 public interface GeographyRestClient {
 
-  @GetMapping("/municipality")
-  List<MunicipalitiesResponse> readMunicipalities();
-
   @GetMapping("/municipality/byEntity/27")
   List<MunicipalitiesResponse> readMunicipalitiesByEntity();
 
   @GetMapping("/seccion/byEntity/27")
   List<SeccionResponse> readSeccionByEntity();
-
-  @GetMapping("/seccion/{id}")
-  SeccionResponse readSeccionById(@PathVariable("id") long id);
-
-  @GetMapping("/municipality/{id}")
-  MunicipalitiesResponse readMunicipalityById(@PathVariable("id") long id);
-
-  @GetMapping("/localitiesSection/{id}")
-  LocalityResponse readLocalityById(@PathVariable("id") long id);
-
-  @GetMapping("/entity/")
-  List<EntitiesResponse> readAllEntities();
 }

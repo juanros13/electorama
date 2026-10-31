@@ -37,14 +37,14 @@ class AuthDataSourceImpl extends AuthDataSource {
       final user = UserMapper.userJsonToEntity(token);
       final dioUser = Dio(
         BaseOptions(
-          baseUrl: Environment.urlUser,
+          baseUrl: Environment.urlStructure,
           headers: {
             'Authorization': 'Bearer ${user.token}'
           }
         )
       );
       final responseUser = await dioUser.get(
-        '/v1.0.0/readUser/${user.authId}', 
+        '/positions/holders/${user.authId}/superior', 
         options: Options(
           contentType: 'application/x-www-form-urlencoded',
           headers: {
@@ -52,7 +52,7 @@ class AuthDataSourceImpl extends AuthDataSource {
           }
         ),
       );
-      final userResponse = user.copyWith(authIdReference: responseUser.data['authIdReference'] ??'');
+      final userResponse = user.copyWith(authIdReference: responseUser.data['superiorAuthId'] ?? '');
       return userResponse;
 
     } on DioException catch (e) {
@@ -94,15 +94,14 @@ class AuthDataSourceImpl extends AuthDataSource {
       final user = UserMapper.userJsonToEntity(keycloakResponse.accessToken);
       final dioUser = Dio(
         BaseOptions(
-          baseUrl: Environment.urlUser,
+          baseUrl: Environment.urlStructure,
           headers: {
             'Authorization': 'Bearer ${user.token}'
           }
         )
       );
-      //https://gateway.nucleo.rocks/api/user/v1.0.0/readUser/dbf1c8b0-7119-4982-93f2-82f3632c7ec3
       final responseUser = await dioUser.get(
-        '/v1.0.0/readUser/${user.authId}', 
+        '/positions/holders/${user.authId}/superior', 
         options: Options(
           contentType: 'application/x-www-form-urlencoded',
           headers: {
@@ -110,7 +109,7 @@ class AuthDataSourceImpl extends AuthDataSource {
           }
         ),
       );
-      final userResponse = user.copyWith(authIdReference: responseUser.data['authIdReference'] ??'');
+      final userResponse = user.copyWith(authIdReference: responseUser.data['superiorAuthId'] ?? '');
       return userResponse;
       //return LoginResult(user: user, error: '' );
       

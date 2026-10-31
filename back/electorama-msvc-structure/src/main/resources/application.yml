@@ -2,7 +2,6 @@ app:
   config:
     usuarios-url: ${MSVC_USER:http://localhost:8001}
     geography-url: ${MSVC_GEOGRAPHY:http://localhost:9003}
-    followers-url: ${MSVC_FOLLOWERS:http://localhost:9002}
     keycloak:
       url: ${KEYCLOAK_URL:http://localhost:8080}
       realm: ${KEYCLOAK_REALM:electorama-realm}

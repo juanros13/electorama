@@ -68,6 +68,13 @@ public class PositionController {
     return Map.of("authId", authId, "inBranch", branch.holderInBranch(authId));
   }
 
+  /** Quién es el superior de una cuenta en la campaña (la app lo guarda como authIdReference). */
+  @GetMapping("/holders/{authId}/superior")
+  public Map<String, Object> holderSuperior(
+      @PathVariable String authId, @RequestParam(required = false) Long campaignId) {
+    return Map.of("authId", authId, "superiorAuthId", positionService.superiorOf(authId, campaignId));
+  }
+
   /** Los puestos vigentes sobre una sección del catálogo, con su titular y su meta. */
   @GetMapping("/by-section/{sectionGeoId}")
   public List<PositionSummary> bySection(

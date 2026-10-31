@@ -29,18 +29,4 @@ public interface StructureRestClient {
       @RequestParam(value = "promoterAuthId", required = false) String promoterAuthId,
       @RequestParam("page") int page,
       @RequestParam("size") int size);
-
-  /**
-   * Los reportes de captacion. `groupBy` es MUNICIPALITY, COORDINATOR o REFERENT, y `scopeAuthId`
-   * acota al arbol de quien consulta.
-   */
-  @GetMapping("/reports/followers")
-  List<StructureCountResponse> reportFollowers(
-      @RequestParam("groupBy") String groupBy,
-      @RequestParam("from") String from,
-      @RequestParam("to") String to,
-      @RequestParam(value = "scopeAuthId", required = false) String scopeAuthId);
-
-  @GetMapping("/reports/mobilization")
-  Map<String, Long> reportMobilization(@RequestParam("sectionNumber") Integer sectionNumber);
 }

@@ -20,7 +20,6 @@ import com.electorama.msvc.users.service.AccountService;
 import com.electorama.msvc.users.service.MenuAdminService;
 import com.electorama.msvc.users.service.MenuService;
 import com.electorama.msvc.users.service.StructureRoles;
-import com.electorama.msvc.users.service.UserSeccionService;
 import com.electorama.msvc.users.service.UserService;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +45,6 @@ class ApiSecurityTest {
 
   @MockBean JwtDecoder jwtDecoder;
   @MockBean UserService userService;
-  @MockBean UserSeccionService userSeccionService;
   @MockBean AccountService accountService;
   @MockBean MenuService menuService;
   @MockBean MenuAdminService menuAdminService;
@@ -78,8 +76,6 @@ class ApiSecurityTest {
     mvc.perform(get("/v1.0.0/readUser/" + ANA).with(as(ANA, "CORDINATOR_ZONE")))
         .andExpect(status().isOk());
     mvc.perform(get("/v1.0.0/readUser/" + BETO).with(as(ANA, "CORDINATOR_ZONE")))
-        .andExpect(status().isForbidden());
-    mvc.perform(get("/v1.0.0/userSeccion/" + BETO).with(as(ANA, "CORDINATOR_ZONE")))
         .andExpect(status().isForbidden());
   }
 

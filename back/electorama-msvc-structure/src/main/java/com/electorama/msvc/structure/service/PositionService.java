@@ -98,6 +98,12 @@ public class PositionService {
     return positions.scopeOf(authId, campaigns.resolve(campaignId));
   }
 
+  /** El authId del titular del puesto superior; vacío si no tiene puesto o es la cúspide. */
+  @Transactional(readOnly = true)
+  public String superiorOf(String authId, Long campaignId) {
+    return positions.superiorOf(authId, campaigns.resolve(campaignId)).orElse("");
+  }
+
   /** Los convencidos de todo el subárbol, que es la pregunta real del avance contra la meta. */
   @Transactional(readOnly = true)
   public long subtreeMemberships(Long id) {
