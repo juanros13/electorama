@@ -2,6 +2,8 @@ package com.electorama.msvc.users.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,9 +15,11 @@ import com.electorama.msvc.users.configuration.SecurityConfig;
 import com.electorama.msvc.users.exception.ApiException;
 import com.electorama.msvc.users.model.dto.MenuGroupDto;
 import com.electorama.msvc.users.model.dto.User;
+import com.electorama.msvc.users.service.AccountAccess;
 import com.electorama.msvc.users.service.AccountService;
 import com.electorama.msvc.users.service.MenuAdminService;
 import com.electorama.msvc.users.service.MenuService;
+import com.electorama.msvc.users.service.StructureRoles;
 import com.electorama.msvc.users.service.UserSeccionService;
 import com.electorama.msvc.users.service.UserService;
 import java.util.List;
@@ -46,6 +50,8 @@ class ApiSecurityTest {
   @MockBean AccountService accountService;
   @MockBean MenuService menuService;
   @MockBean MenuAdminService menuAdminService;
+  @MockBean AccountAccess accountAccess;
+  @MockBean StructureRoles structureRoles;
 
   private static final String ANA = "11111111-1111-1111-1111-111111111111";
   private static final String BETO = "22222222-2222-2222-2222-222222222222";
@@ -84,10 +90,14 @@ class ApiSecurityTest {
   }
 
   @Test
-  void crearCuentaEsSoloDeAdminYElDuplicadoEs409() throws Exception {
+  void crearCuentaDeTuMismoNivelEs403YElDuplicadoEs409() throws Exception {
     String body =
         "{\"email\":\"ana@x.com\",\"password\":\"secreta123\",\"firstName\":\"Ana\","
             + "\"lastName\":\"López\",\"role\":\"CORDINATOR_ZONE\"}";
+    // AccountAccess decide por antigüedad: un promotor no crea cuentas de promotor
+    doThrow(ApiException.forbidden("Sólo se administran cuentas de niveles debajo del tuyo"))
+        .when(accountAccess)
+        .checkCreate(anyString());
     mvc.perform(
             post("/v2/accounts")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -95,6 +105,7 @@ class ApiSecurityTest {
                 .with(as(ANA, "CORDINATOR_ZONE")))
         .andExpect(status().isForbidden());
 
+    org.mockito.Mockito.reset(accountAccess);
     when(accountService.create(any()))
         .thenThrow(ApiException.conflict("ACCOUNT_EXISTS", "ya existe", Map.of("authId", BETO)));
     mvc.perform(
@@ -116,6 +127,29 @@ class ApiSecurityTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].link").value("/admin/structure/dashboard"))
         .andExpect(jsonPath("$[0].children").doesNotExist());
+  }
+
+  @Test
+  void registrarRolesDeEstructuraEsSoloDeAdmin() throws Exception {
+    String body = "{\"role\":\"T30_COORD_DISTRITAL\",\"seniority\":3,\"campaignId\":5}";
+    mvc.perform(
+            post("/v2/roles/ensure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .with(as(ANA, "CORDINATOR_ZONE")))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            post("/v2/roles/ensure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .with(as(ANA, "ADMIN")))
+        .andExpect(status().isNoContent());
+    mvc.perform(
+            post("/v2/roles/ensure")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"role\":\"con espacios\",\"seniority\":1}")
+                .with(as(ANA, "ADMIN")))
+        .andExpect(status().isBadRequest());
   }
 
   @Test

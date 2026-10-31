@@ -35,8 +35,14 @@ public class Position {
   @JoinColumn(name = "structure_id")
   private Structure structure;
 
+  /** El nivel de su campaña (V3): nombre, rango, dónde va y qué rol da. */
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "level_id")
+  private CampaignLevel campaignLevel;
+
+  /** La función heredada del nivel; la copia el trigger desde {@code campaign_level}. */
   @Enumerated(EnumType.STRING)
-  @Column(nullable = false)
+  @Column(insertable = false, updatable = false)
   private Level level;
 
   @ManyToOne(fetch = FetchType.LAZY)

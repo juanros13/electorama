@@ -1,0 +1,450 @@
+@let c = selected();
+@let g = general();
+@let field = 'rounded-lg border border-neutral-200 bg-card px-3 py-2 text-sm dark:border-neutral-800 disabled:opacity-60';
+@let label = 'text-2xs tracking-wider text-neutral-500 uppercase';
+
+<div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
+  <app-page-header
+    eyebrow="Estructura"
+    title="Campañas"
+    subtitle="Datos de cada campaña, lo que se elige, sus estructuras y los niveles de su organigrama: cuántos, cómo se llaman y qué rol recibe cada titular."
+  >
+    <button actions matButton="filled" (click)="newCampaign()">
+      <mat-icon svgIcon="plus" />
+      Nueva campaña
+    </button>
+  </app-page-header>
+
+  @if (error(); as message) {
+    <div class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+      <mat-icon svgIcon="triangle-alert" class="icon-size-5 shrink-0 text-amber-600" />
+      <p class="text-amber-800 dark:text-amber-300">{{ message }}</p>
+    </div>
+  }
+
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-4">
+    <!-- ─────────────────── las campañas ─────────────────── -->
+    <div class="flex flex-col gap-2">
+      @if (loading()) {
+        <div class="h-0.5 animate-pulse bg-primary-500"></div>
+      }
+      @for (item of campaigns(); track item.id) {
+        <button
+          class="flex flex-col gap-1 rounded-xl border p-4 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/40"
+          [class]="c?.id === item.id ? 'border-primary-500 ring-1 ring-primary-500' : 'border-neutral-200 dark:border-neutral-800'"
+          (click)="select(item)"
+        >
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-semibold">{{ item.name }}</span>
+            <span
+              class="rounded-full px-2 py-0.5 text-2xs font-semibold"
+              [class]="
+                item.status === 'ACTIVE'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300'
+                  : item.status === 'PLANNING'
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+              "
+              >{{ statusLabel[item.status] }}</span
+            >
+          </span>
+          <span class="text-xs text-neutral-500">
+            {{ item.territoryName ?? 'Sin territorio' }} · {{ item.levels.length }} niveles ·
+            {{ item.structures.length }} estructuras
+          </span>
+        </button>
+      } @empty {
+        @if (!loading()) {
+          <p class="text-sm text-neutral-500">Todavía no hay campañas.</p>
+        }
+      }
+    </div>
+
+    <!-- ─────────────────── el editor ─────────────────── -->
+    <div class="flex flex-col gap-4 xl:col-span-3">
+      @if (editing()) {
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-900">
+            @for (t of [
+              { id: 'general', label: 'General' },
+              { id: 'levels', label: 'Niveles' },
+              { id: 'structures', label: 'Estructuras' },
+              { id: 'elections', label: 'Cargos' }
+            ]; track t.id) {
+              <button
+                class="rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                [class]="tab() === t.id ? 'bg-card shadow-sm' : 'text-neutral-600 dark:text-neutral-400'"
+                [disabled]="t.id !== 'general' && !hasCampaign()"
+                [matTooltip]="t.id !== 'general' && !hasCampaign() ? 'Guarda primero los datos generales' : ''"
+                (click)="tab.set($any(t.id))"
+              >
+                {{ t.label }}
+              </button>
+            }
+          </div>
+          @if (c && !readOnly()) {
+            <div class="flex gap-2">
+              @if (c.status === 'PLANNING') {
+                <button matButton="outlined" [disabled]="saving()" (click)="changeStatus('ACTIVE')">
+                  <mat-icon svgIcon="play" class="icon-size-4" /> Activar
+                </button>
+              }
+              @if (c.status !== 'CLOSED') {
+                <button matButton class="!text-red-600" [disabled]="saving()" (click)="changeStatus('CLOSED')">
+                  <mat-icon svgIcon="lock" class="icon-size-4" /> Cerrar campaña
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        @if (readOnly()) {
+          <p class="rounded-lg bg-neutral-100 px-4 py-2 text-sm text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
+            Esta campaña está cerrada: su configuración sólo se consulta.
+          </p>
+        }
+
+        <!-- ───────── general ───────── -->
+        @if (tab() === 'general') {
+          <app-section-card [heading]="c ? c.name : 'Nueva campaña'">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label class="flex flex-col gap-1 md:col-span-2">
+                <span [class]="label">Nombre</span>
+                <input
+                  [class]="field"
+                  placeholder="Tabasco 2030"
+                  [disabled]="readOnly()"
+                  [ngModel]="g.name"
+                  (ngModelChange)="patchGeneral({ name: $event })"
+                />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Tipo</span>
+                <select [class]="field" [disabled]="readOnly()" [ngModel]="g.type" (ngModelChange)="patchGeneral({ type: $event })">
+                  @for (t of campaignTypes; track t.value) {
+                    <option [ngValue]="t.value">{{ t.label }}</option>
+                  }
+                </select>
+              </label>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Estado</span>
+                <select
+                  [class]="field"
+                  [disabled]="readOnly()"
+                  [ngModel]="territoryState()"
+                  (ngModelChange)="patchGeneral({ territoryId: $event })"
+                >
+                  <option [ngValue]="null">Sin territorio</option>
+                  @for (t of stateOptions(); track t.id) {
+                    <option [ngValue]="t.id">{{ t.name }}</option>
+                  }
+                </select>
+              </label>
+              @if (g.type === 'MUNICIPAL' && territoryState() != null) {
+                <label class="flex flex-col gap-1">
+                  <span [class]="label">Municipio</span>
+                  <select
+                    [class]="field"
+                    [disabled]="readOnly()"
+                    [ngModel]="g.territoryId ?? null"
+                    (ngModelChange)="patchGeneral({ territoryId: $event ?? territoryState() })"
+                  >
+                    <option [ngValue]="territoryState()">Todo el estado</option>
+                    @for (t of municipalityOptions(); track t.id) {
+                      <option [ngValue]="t.id">{{ t.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              <div class="flex flex-col gap-1 md:col-span-2">
+                <span [class]="label">Meta por sección (% de la lista nominal)</span>
+                <div class="flex flex-wrap items-center gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="0.5"
+                    class="w-28"
+                    [class]="field"
+                    [disabled]="readOnly()"
+                    [ngModel]="g.goalPercentage ?? 61"
+                    (ngModelChange)="patchGeneral({ goalPercentage: $event === '' ? null : +$event })"
+                  />
+                  @if (c && !readOnly()) {
+                    <button
+                      matButton="outlined"
+                      [disabled]="saving() || !c.stateGeoId"
+                      [matTooltip]="c.stateGeoId ? '' : 'La campaña necesita un territorio'"
+                      (click)="applyGoal()"
+                    >
+                      <mat-icon svgIcon="target" />
+                      Aplicar a las secciones
+                    </button>
+                  }
+                  @if (goalSummary(); as s) {
+                    <span class="text-sm text-neutral-600 dark:text-neutral-400">
+                      Meta {{ s.meta | number }} sobre LN {{ s.nominalList | number }} en {{ s.sections | number }} secciones
+                    </span>
+                  }
+                </div>
+                <span class="text-xs text-neutral-500">
+                  Se guarda con los datos de la campaña. "Aplicar" lo copia a todas las secciones vigentes de su territorio y
+                  recalcula la meta = LN × %; después se puede ajustar sección por sección en el catálogo territorial.
+                </span>
+              </div>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Inicio de campaña</span>
+                <input type="date" [class]="field" [disabled]="readOnly()" [ngModel]="g.startDate" (ngModelChange)="patchGeneral({ startDate: $event || null })" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Cierre de campaña</span>
+                <input type="date" [class]="field" [disabled]="readOnly()" [ngModel]="g.endDate" (ngModelChange)="patchGeneral({ endDate: $event || null })" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Día de la elección</span>
+                <input type="date" [class]="field" [disabled]="readOnly()" [ngModel]="g.electionDay" (ngModelChange)="patchGeneral({ electionDay: $event || null })" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span [class]="label">Año</span>
+                <input
+                  type="number"
+                  [class]="field"
+                  placeholder="El del día de la elección"
+                  [disabled]="readOnly()"
+                  [ngModel]="g.year"
+                  (ngModelChange)="patchGeneral({ year: $event === '' ? null : +$event })"
+                />
+              </label>
+              <label class="flex flex-col gap-1 md:col-span-2">
+                <span [class]="label">Descripción</span>
+                <textarea
+                  rows="2"
+                  [class]="field"
+                  [disabled]="readOnly()"
+                  [ngModel]="g.description"
+                  (ngModelChange)="patchGeneral({ description: $event })"
+                ></textarea>
+              </label>
+            </div>
+            @if (!readOnly()) {
+              <div class="mt-4 flex justify-end">
+                <button matButton="filled" [disabled]="saving()" (click)="saveGeneral()">
+                  {{ c ? 'Guardar datos' : 'Crear campaña' }}
+                </button>
+              </div>
+            }
+          </app-section-card>
+        }
+
+        <!-- ───────── niveles ───────── -->
+        @if (tab() === 'levels') {
+          <app-section-card heading="Niveles del organigrama">
+            <p class="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+              El primero es la cúspide; cada puesto cuelga de uno del nivel de arriba. La <b>función</b> conecta el nivel con
+              lo que ya sabe hacer el sistema (claves de sección, captura de convencidos, reportes). El <b>rol</b> se crea en
+              Keycloak al guardar; si lo dejas vacío se arma con el nombre de la campaña.
+            </p>
+            @if (levels().length) {
+              <p class="mb-4 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-800 dark:bg-primary-500/10 dark:text-primary-300">
+                {{ levelChain() }}
+              </p>
+            }
+
+            <div class="flex flex-col gap-3">
+              @for (l of levels(); track $index; let i = $index) {
+                @let locked = l.positions > 0 || readOnly();
+                <div class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                  <div class="mb-2 flex items-center justify-between gap-2">
+                    <span class="text-sm font-semibold">
+                      Nivel {{ i + 1 }}
+                      @if (l.positions) {
+                        <span class="ml-2 text-2xs font-normal text-neutral-500">{{ l.positions }} puestos · sólo se cambian nombre, meta y rol</span>
+                      }
+                    </span>
+                    @if (!readOnly()) {
+                      <span class="flex gap-1">
+                        <button matIconButton [disabled]="!canMove(i, -1)" matTooltip="Subir" (click)="moveLevel(i, -1)">
+                          <mat-icon svgIcon="arrow-up" class="icon-size-4" />
+                        </button>
+                        <button matIconButton [disabled]="!canMove(i, 1)" matTooltip="Bajar" (click)="moveLevel(i, 1)">
+                          <mat-icon svgIcon="arrow-down" class="icon-size-4" />
+                        </button>
+                        <button matIconButton [disabled]="l.positions > 0" matTooltip="Quitar" (click)="removeLevel(i)">
+                          <mat-icon svgIcon="trash-2" class="icon-size-4" />
+                        </button>
+                      </span>
+                    }
+                  </div>
+                  <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Nombre</span>
+                      <input [class]="field" placeholder="Coordinador distrital" [disabled]="readOnly()" [ngModel]="l.nameSingular" (ngModelChange)="patchLevel(i, { nameSingular: $event })" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Plural</span>
+                      <input [class]="field" placeholder="Coordinadores distritales" [disabled]="readOnly()" [ngModel]="l.namePlural" (ngModelChange)="patchLevel(i, { namePlural: $event })" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Va sobre</span>
+                      <select [class]="field" [disabled]="locked" [ngModel]="l.territoryType ?? null" (ngModelChange)="patchLevel(i, { territoryType: $event })">
+                        @for (t of territoryTypes; track t.label) {
+                          <option [ngValue]="t.value">{{ t.label }}</option>
+                        }
+                      </select>
+                    </label>
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Función</span>
+                      <select [class]="field" [disabled]="locked" [ngModel]="l.function ?? null" (ngModelChange)="patchLevel(i, { function: $event })">
+                        @for (f of functions; track f.label) {
+                          <option [ngValue]="f.value" [disabled]="f.value && f.value !== l.function && usedFunctions().has(f.value)">{{ f.label }}</option>
+                        }
+                      </select>
+                      <span class="text-2xs text-neutral-500">{{ functionHint(l.function) }}</span>
+                    </label>
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Meta por puesto</span>
+                      <input
+                        type="number"
+                        min="0"
+                        [class]="field"
+                        placeholder="Sin meta"
+                        [disabled]="readOnly()"
+                        [ngModel]="l.defaultGoal"
+                        (ngModelChange)="patchLevel(i, { defaultGoal: $event === '' || $event == null ? null : +$event })"
+                      />
+                      <span class="text-2xs text-neutral-500">También reparte las vacantes del nivel de arriba</span>
+                    </label>
+                    <label class="flex flex-col gap-1">
+                      <span [class]="label">Rol (Keycloak)</span>
+                      <input
+                        [class]="field + ' font-mono uppercase'"
+                        placeholder="Automático"
+                        [disabled]="readOnly()"
+                        [ngModel]="l.roleName"
+                        (ngModelChange)="patchLevel(i, { roleName: $event })"
+                      />
+                      <input
+                        [class]="field + ' font-mono uppercase'"
+                        placeholder="Rol en la alterna (opcional)"
+                        [disabled]="readOnly()"
+                        [ngModel]="l.alternateRoleName"
+                        (ngModelChange)="patchLevel(i, { alternateRoleName: $event })"
+                      />
+                    </label>
+                  </div>
+                </div>
+              } @empty {
+                <div class="flex flex-col items-start gap-3 rounded-lg border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
+                  <p class="text-sm text-neutral-600 dark:text-neutral-400">
+                    Esta campaña todavía no tiene niveles. Empieza con los de 2027 (coordinador › promotor › movilizador) o
+                    arma los tuyos.
+                  </p>
+                  @if (!readOnly()) {
+                    <button matButton="outlined" (click)="useDefaultLevels()">Usar los tres niveles de 2027</button>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (!readOnly()) {
+              <div class="mt-4 flex justify-between">
+                <button matButton (click)="addLevel()"><mat-icon svgIcon="plus" class="icon-size-4" /> Agregar nivel</button>
+                <button matButton="filled" [disabled]="saving() || !levels().length" (click)="saveLevels()">Guardar niveles</button>
+              </div>
+            }
+          </app-section-card>
+        }
+
+        <!-- ───────── estructuras ───────── -->
+        @if (tab() === 'structures') {
+          <app-section-card heading="Estructuras">
+            <p class="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+              Cada estructura es un organigrama completo con los niveles de la campaña. La alterna usa el rol alterno de
+              cada nivel si lo tiene.
+            </p>
+            <div class="flex flex-col gap-2">
+              @for (s of structures(); track $index; let i = $index) {
+                <div class="flex flex-wrap items-end gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                  <label class="flex min-w-48 flex-1 flex-col gap-1">
+                    <span [class]="label">Nombre</span>
+                    <input [class]="field" [disabled]="readOnly()" [ngModel]="s.name" (ngModelChange)="patchStructure(i, { name: $event })" />
+                  </label>
+                  <label class="flex flex-col gap-1">
+                    <span [class]="label">Tipo</span>
+                    <select [class]="field" [disabled]="readOnly()" [ngModel]="s.type" (ngModelChange)="patchStructure(i, { type: $event })">
+                      <option ngValue="MAIN">Principal</option>
+                      <option ngValue="ALTERNATE">Alterna</option>
+                      <option ngValue="ALLIED">Aliada</option>
+                    </select>
+                  </label>
+                  @if (!readOnly()) {
+                    <button matButton="outlined" [disabled]="saving()" (click)="saveStructure(i)">Guardar</button>
+                    <button matIconButton matTooltip="Quitar" [disabled]="saving()" (click)="removeStructure(i)">
+                      <mat-icon svgIcon="trash-2" class="icon-size-4" />
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+            @if (!readOnly()) {
+              <button matButton class="mt-3" (click)="addStructure()"><mat-icon svgIcon="plus" class="icon-size-4" /> Agregar estructura</button>
+            }
+          </app-section-card>
+        }
+
+        <!-- ───────── cargos ───────── -->
+        @if (tab() === 'elections') {
+          <app-section-card heading="Cargos en disputa">
+            <div class="flex flex-col gap-2">
+              @for (e of elections(); track $index; let i = $index) {
+                <div class="flex flex-wrap items-end gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                  <label class="flex min-w-44 flex-1 flex-col gap-1">
+                    <span [class]="label">Cargo</span>
+                    <select [class]="field" [disabled]="readOnly()" [ngModel]="e.office" (ngModelChange)="patchElection(i, { office: $event })">
+                      <option value="" disabled>Elige</option>
+                      @for (o of offices; track o.value) {
+                        <option [value]="o.value">{{ o.label }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="flex min-w-40 flex-col gap-1">
+                    <span [class]="label">Ámbito</span>
+                    <select [class]="field" [disabled]="readOnly()" [ngModel]="e.scope" (ngModelChange)="patchElection(i, { scope: $event })">
+                      <option value="" disabled>Elige</option>
+                      @for (s of scopes; track s.value) {
+                        <option [value]="s.value">{{ s.label }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="flex flex-col gap-1">
+                    <span [class]="label">Cuántos</span>
+                    <input type="number" min="1" [class]="field + ' w-24'" [disabled]="readOnly()" [ngModel]="e.seats" (ngModelChange)="patchElection(i, { seats: +$event })" />
+                  </label>
+                  <label class="flex flex-col gap-1">
+                    <span [class]="label">Día</span>
+                    <input type="date" [class]="field" [disabled]="readOnly()" [ngModel]="e.electionDay" (ngModelChange)="patchElection(i, { electionDay: $event })" />
+                  </label>
+                  @if (!readOnly()) {
+                    <button matIconButton matTooltip="Quitar" (click)="removeElection(i)">
+                      <mat-icon svgIcon="trash-2" class="icon-size-4" />
+                    </button>
+                  }
+                </div>
+              } @empty {
+                <p class="text-sm text-neutral-500">Sin cargos registrados.</p>
+              }
+            </div>
+            @if (!readOnly()) {
+              <div class="mt-4 flex justify-between">
+                <button matButton (click)="addElection()"><mat-icon svgIcon="plus" class="icon-size-4" /> Agregar cargo</button>
+                <button matButton="filled" [disabled]="saving()" (click)="saveElections()">Guardar cargos</button>
+              </div>
+            }
+          </app-section-card>
+        }
+      } @else {
+        <p class="text-sm text-neutral-500">Elige una campaña o crea una nueva.</p>
+      }
+    </div>
+  </div>
+</div>

@@ -107,6 +107,27 @@ public class KeycloakUserService {
     }
   }
 
+  /** Crea el rol del realm si no existe; si ya existe no lo toca. */
+  public void ensureRealmRole(String roleName, String description) {
+    try {
+      realm.roles().get(roleName).toRepresentation();
+      return;
+    } catch (NotFoundException e) {
+      // no existe: se crea abajo
+    } catch (ProcessingException | WebApplicationException e) {
+      throw ApiException.keycloak("No se pudo leer el rol en Keycloak: " + e.getMessage());
+    }
+    try {
+      RoleRepresentation role = new RoleRepresentation();
+      role.setName(roleName);
+      role.setDescription(description);
+      realm.roles().create(role);
+      log.info("rol {} creado en el realm", roleName);
+    } catch (ProcessingException | WebApplicationException e) {
+      throw ApiException.keycloak("No se pudo crear el rol en Keycloak: " + e.getMessage());
+    }
+  }
+
   /** Le pone un rol del realm. */
   public void addRealmRole(String authId, String roleName) {
     try {

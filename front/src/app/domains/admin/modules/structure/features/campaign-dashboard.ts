@@ -26,10 +26,12 @@ import { OrganizationService } from '../data/organization.service';
 import { MunicipalitySummary } from '../data/organization.types';
 import { TerritoryService } from '../data/territory.service';
 import { CatalogMunicipality } from '../data/territory.types';
+import { WorkingCampaign } from '../data/working-campaign';
+import { ElectoralHistoryService } from '../../electoral-history/data/electoral-history.service';
+import { stateName } from '../../electoral-history/data/states';
+import { MatButtonModule } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
 import { MunicipalityBreakdown } from './municipality-breakdown';
-
-/** El estado de campaña. */
-const STATE_ID = 27;
 
 /** Una fila del tablero: lo del Excel (requerido) junto a lo real (asignado). */
 interface DashboardRow {
@@ -101,12 +103,14 @@ const COLUMNS: readonly Column[] = [
   templateUrl: './campaign-dashboard.html',
   imports: [
     DecimalPipe,
+    MatButtonModule,
     MatIconModule,
     MatTooltipModule,
     MunicipalityBreakdown,
     NgTemplateOutlet,
     PageHeader,
     PercentPipe,
+    RouterLink,
     StatCard,
     TableShell,
   ],
@@ -115,6 +119,20 @@ export default class CampaignDashboard {
   private territory = inject(TerritoryService);
   private organization = inject(OrganizationService);
   private destroyRef = inject(DestroyRef);
+  private working = inject(WorkingCampaign);
+  private history = inject(ElectoralHistoryService);
+
+  /** "Veracruz · Veracruz 2027": el estado y la campaña con la que se trabaja. */
+  protected campaignLabel = computed(() => {
+    const c = this.working.campaign();
+    const state = stateName(this.working.stateId());
+    return c ? `${state} · ${c.name}` : state;
+  });
+
+  /** El histórico se abre en el estado de la campaña. */
+  protected openHistory(): void {
+    this.history.setState(this.working.stateId());
+  }
 
   protected loading = signal(true);
   protected rows = signal<DashboardRow[]>([]);
@@ -178,16 +196,24 @@ export default class CampaignDashboard {
   private load(): void {
     this.loading.set(true);
     forkJoin({
-      municipalities: this.territory
-        .getMunicipalities(STATE_ID)
-        .pipe(catchError(() => of(null))),
-      summary: this.organization
-        .getMunicipalitySummary()
-        .pipe(catchError(() => of(null))),
-      // la campaña cerrada más reciente, sólo como referencia
-      previous: this.organization.getCampaigns().pipe(
+      municipalities: this.working
+        .load()
+        .pipe(
+          switchMap(() => this.territory.getMunicipalities(this.working.stateId())),
+          catchError(() => of(null))
+        ),
+      // la campaña con la que se trabaja, no la ACTIVE más reciente
+      summary: this.working.load().pipe(
+        switchMap((c) => this.organization.getMunicipalitySummary(c?.id)),
+        catchError(() => of(null))
+      ),
+      // la campaña cerrada más reciente del mismo estado, sólo como referencia
+      previous: this.working.load().pipe(
+        switchMap(() => this.organization.getCampaigns()),
         switchMap((campaigns) => {
-          const closed = campaigns.find((c) => c.status === 'CLOSED');
+          const closed = campaigns.find(
+            (c) => c.status === 'CLOSED' && c.stateGeoId === this.working.stateId()
+          );
           return closed ? this.organization.getMunicipalitySummary(closed.id) : of(null);
         }),
         catchError(() => of(null))

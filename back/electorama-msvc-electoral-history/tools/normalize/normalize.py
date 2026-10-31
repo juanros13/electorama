@@ -2,11 +2,12 @@
 Normalizador de resultados electorales oficiales → formato largo para psql.
 
 Sólo cambia la forma: lee un archivo por casilla (CSV del INE o XLSX del IEPCT),
-se queda con Tabasco y escribe dos archivos separados por '|':
+se queda con un estado (Tabasco por default) o con todos, y escribe dos archivos
+separados por '|':
 
   st_<año>_<cargo>.txt  una fila por casilla
       station_key|section|district|municipality|station_type|nominal_list|
-      total_votes|null_votes|non_registered_votes|counted|source_row
+      total_votes|null_votes|non_registered_votes|counted|source_row|state_id
   vt_<año>_<cargo>.txt  una fila por casilla y columna de votos de la boleta
       station_key|raw_label|votes
 
@@ -15,8 +16,10 @@ No decide qué es un partido, una coalición o un total derivado: eso lo manda
 Por eso aquí salen TODAS las columnas de votos tal cual vienen.
 
 Uso (desde la carpeta de las fuentes):
-  python normalize.py <año> <cargo> <salida>
+  python normalize.py <año> <cargo> <salida> [--state NN|all]
   python normalize.py 2024 PRESIDENT C:\\Users\\juanr\\geo-2026\\electoral-history
+  python normalize.py 2024 PRESIDENT C:\\Users\\juanr\\geo-2026\\electoral-history\\nacional --state all
+  python normalize.py 2024 MAYOR C:\\Users\\juanr\\geo-2026\\electoral-history\\cdmx --source iecm
   python normalize.py sections <año> <salida>    sección → municipio de ese año
 
 Sólo usa la biblioteca estándar + openpyxl (que ya está instalado).
@@ -29,7 +32,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-STATE_ID = '27'
+STATE_ID = '27'  # el default; con --state all salen los 32 estados
 
 # --- fuentes -----------------------------------------------------------------
 # Cada fuente dice dónde está el archivo y qué columnas son fijas; el resto de
@@ -75,7 +78,7 @@ def first(header: dict, names) -> int:
     raise KeyError(f'ninguna de {names} está en el encabezado')
 
 
-def read_ine(year: int, office: str, root: Path):
+def read_ine(year: int, office: str, root: Path, state_id: str = STATE_ID):
     outer, inner, member = INE[(year, office)]
     with zipfile.ZipFile(root / outer) as zf:
         with zipfile.ZipFile(io.BytesIO(zf.read(inner))) as iz:
@@ -97,7 +100,7 @@ def read_ine(year: int, office: str, root: Path):
     rows = [
         (n, line.split('|'))
         for n, line in enumerate(lines[header_at + 1:], start=header_at + 2)
-        if line and clean(line.split('|')[state]) == STATE_ID
+        if line and (state_id == 'all' or clean(line.split('|')[state]).lstrip('0') == state_id.lstrip('0'))
     ]
 
     # En senado y diputaciones, cada casilla especial levanta DOS actas: la de
@@ -148,6 +151,7 @@ def read_ine(year: int, office: str, root: Path):
             'non_registered_votes': nr_votes,
             'counted': 't',
             'source_row': row_number,
+            'state_id': int(clean(row[state])),
             'votes': votes,
         }
 
@@ -223,8 +227,107 @@ def read_iepct(year: int, office: str, root: Path):
             'non_registered_votes': to_int(r[nr]),
             'counted': 'f' if annulled is not None and str(r[annulled]).strip().upper() == 'SI' else 't',
             'source_row': row_number,
+            'state_id': 27,
             'votes': votes,
         }
+
+
+# --- IECM (Ciudad de México) ---------------------------------------------------
+# Bases "por casilla electoral" del Sistema de Consulta de la Estadística de
+# Resultados (estadisticaresultadospelo2024.iecm.mx y su equivalente 2021).
+# Traen la clave de demarcación del INE, así que el municipio va por clave.
+IECM = {
+    (2024, 'GOVERNOR'): 'iecm/2024/bd2024jgcas.xlsx',
+    (2024, 'LOCAL_DEPUTY'): 'iecm/2024/bd2024dmrcas.xlsx',
+    (2024, 'MAYOR'): 'iecm/2024/bd2024alccas.xlsx',
+    (2021, 'LOCAL_DEPUTY'): 'iecm/2021/bd2021dmrcas.xls',
+    (2021, 'MAYOR'): 'iecm/2021/bd2021alccas.xls',
+}
+IECM_STATE = 9
+
+
+def iecm_rows(path: Path):
+    """La primera hoja como listas, sea .xlsx (2024) o .xls (2021, con xlrd)."""
+    if path.suffix == '.xls':
+        import xlrd
+
+        ws = xlrd.open_workbook(path).sheet_by_index(0)
+        return [ws.row_values(i) for i in range(ws.nrows)]
+    from openpyxl import load_workbook
+
+    ws = load_workbook(path, read_only=True, data_only=True).worksheets[0]
+    return [list(r) for r in ws.iter_rows(values_only=True)]
+
+
+def iecm_station_type(casilla: str) -> str:
+    """B, C01, E01C01, S/SMR; VA (postración) es voto anticipado; VMRE/VeMRE, extranjero; VPPP, prisión."""
+    casilla = casilla.upper()
+    for prefix, code in (('VPPP', 'P'), ('VEMRE', 'V'), ('VMRE', 'V'), ('VA', 'A'),
+                         ('B', 'B'), ('C', 'C'), ('E', 'E'), ('S', 'S')):
+        if casilla.startswith(prefix):
+            return code
+    raise SystemExit(f'tipo de casilla desconocido: {casilla!r}')
+
+
+def blank(value) -> bool:
+    return value is None or str(value).strip() == ''
+
+
+def read_iecm(year: int, office: str, root: Path):
+    rows = iecm_rows(root / IECM[(year, office)])
+    at = next(i for i, r in enumerate(rows) if r and str(r[0]).strip().upper().startswith('DISTRITO'))
+    names = [' '.join(str(h).split()) if not blank(h) else '' for h in rows[at]]
+    col = {plain_upper(n): i for i, n in enumerate(names)}
+
+    def find(*options):
+        for o in options:
+            if o in col:
+                return col[o]
+        raise SystemExit(f'{year} {office}: no encuentro {options} en {names}')
+
+    district = find('DISTRITO ELECTORAL LOCAL', 'DISTRITO_LOCAL')
+    municipality = find('CLAVE DEMARCACION TERRITORIAL', 'CLAVE_DEM')
+    section = find('SECCION ELECTORAL', 'SECCION')
+    casilla = find('CASILLA ELECTORAL', 'CASILLA')
+    nr = find('VOTOS CANDIDATOS NO REGISTRADOS', 'CNR')
+    null = find('VOTOS NULOS', 'VN')
+    total = find('VOTOS TOTALES', 'VOTACION TOTAL')
+    nominal = find('LISTA NOMINAL')
+    # 2021 trae además tipo, número y extraordinaria contigua: entran a la clave
+    extra = [col[c] for c in ('TIPO_CASILLA', 'ID_CASILLA', 'EXT_CONTIGUA') if c in col]
+    vote_columns = range(find('PAN'), nr)
+
+    seen = set()
+    for row_number, r in enumerate(rows[at + 1:], start=at + 2):
+        if not r or blank(r[casilla]) or blank(r[section]):
+            continue
+        label = str(r[casilla]).strip()
+        dist, mun, sec = to_int(r[district]), to_int(r[municipality]), to_int(r[section])
+        key = '/'.join([str(dist), str(mun), str(sec), *(str(to_int(r[c])) if not isinstance(r[c], str) else r[c].strip() for c in extra), label])
+        if key in seen:
+            raise SystemExit(f'{year} {office}: casilla repetida {key}')
+        seen.add(key)
+        # celda vacía = la opción no estaba en la boleta de ese territorio (2021); no se escribe
+        votes = {names[c]: to_int(r[c]) for c in vote_columns if not blank(r[c])}
+        yield {
+            'station_key': key,
+            'section': sec,
+            'district': str(dist),  # 0: extranjero
+            'municipality': str(mun),  # clave de demarcación del INE
+            'station_type': iecm_station_type(label),
+            'nominal_list': to_int(r[nominal]),
+            'total_votes': to_int(r[total]),
+            'null_votes': to_int(r[null]),
+            'non_registered_votes': to_int(r[nr]),
+            'counted': 't',
+            'source_row': row_number,
+            'state_id': IECM_STATE,
+            'votes': votes,
+        }
+
+
+def plain_upper(text: str) -> str:
+    return text.upper().translate(str.maketrans('ÁÉÍÓÚÜÑ', 'AEIOUUN')).strip()
 
 
 def write(rows, year: int, office: str, out: Path):
@@ -242,7 +345,7 @@ def write(rows, year: int, office: str, out: Path):
             sw.writerow(
                 [r['station_key'], r['section'], r['district'], r['municipality'], r['station_type'],
                  r['nominal_list'], r['total_votes'], r['null_votes'], r['non_registered_votes'],
-                 r['counted'], r['source_row']]
+                 r['counted'], r['source_row'], r['state_id']]
             )
             for label, votes in r['votes'].items():
                 vw.writerow([r['station_key'], label.strip(), votes])
@@ -312,9 +415,12 @@ def main():
         write_sections(int(sys.argv[2]), Path(sys.argv[3]))
         return
     year, office, out = int(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
+    state_id = sys.argv[sys.argv.index('--state') + 1] if '--state' in sys.argv else STATE_ID
     root = Path.cwd()
-    if (year, office) in INE:
-        rows = read_ine(year, office, root)
+    if '--source' in sys.argv and sys.argv[sys.argv.index('--source') + 1] == 'iecm':
+        rows = read_iecm(year, office, root)
+    elif (year, office) in INE:
+        rows = read_ine(year, office, root, state_id)
     elif office in IEPCT:
         rows = read_iepct(year, office, root)
     else:

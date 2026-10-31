@@ -15,6 +15,7 @@ import { catchError, of, switchMap, tap } from 'rxjs';
 import { coverage, coverageBarClass, coverageClass } from '../data/campaign-rules';
 import { OrganizationService } from '../data/organization.service';
 import { MunicipalityPosition } from '../data/organization.types';
+import { WorkingCampaign } from '../data/working-campaign';
 
 /** Lo que el tablero ya sabe del municipio: lo requerido sale del Excel. */
 export interface BreakdownMunicipality {
@@ -70,6 +71,7 @@ const PAGE = 30;
 })
 export class MunicipalityBreakdown {
   private organization = inject(OrganizationService);
+  private working = inject(WorkingCampaign);
 
   municipality = input.required<BreakdownMunicipality>();
   closed = output<void>();
@@ -98,7 +100,7 @@ export class MunicipalityBreakdown {
           this.limit.set(PAGE);
         }),
         switchMap((id) =>
-          this.organization.getMunicipalityBreakdown(id).pipe(
+          this.organization.getMunicipalityBreakdown(id, this.working.campaign()?.id).pipe(
             catchError(() => {
               this.error.set(true);
               return of([] as MunicipalityPosition[]);

@@ -19,6 +19,7 @@ export type ViewId =
   | 'structure.capture'
   | 'structure.supporters'
   | 'structure.territory'
+  | 'structure.campaigns'
   | 'structure.supporters2024'
   | 'electoralHistory.dashboard'
   | 'electoralHistory.mySection'
@@ -69,6 +70,13 @@ export const VIEWS: readonly AccessView[] = [
     route: '/admin/structure/territory',
     icon: 'map',
     description: 'Secciones, municipios y distritos',
+  },
+  {
+    id: 'structure.campaigns',
+    label: 'Campañas',
+    route: '/admin/structure/campaigns',
+    icon: 'flag',
+    description: 'Datos, cargos, estructuras y niveles',
   },
   {
     id: 'structure.supporters2024',

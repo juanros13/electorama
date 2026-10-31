@@ -62,46 +62,54 @@ public class AnalysisService {
   private final ElectionService elections;
   private final HistoryQueryRepository history;
 
-  public AnalysisReport analysis(int year) {
-    ElectionSummary mayor = find(year, MAYOR).orElseThrow(() -> notFound(year, MAYOR));
+  /**
+   * @param state el estado (clave INE); necesita sus ayuntamientos y diputaciones locales del año
+   */
+  public AnalysisReport analysis(int state, int year) {
+    ElectionSummary mayor = find(state, year, MAYOR).orElseThrow(() -> notFound(year, MAYOR));
     ElectionSummary deputy =
-        find(year, LOCAL_DEPUTY).orElseThrow(() -> notFound(year, LOCAL_DEPUTY));
+        find(state, year, LOCAL_DEPUTY).orElseThrow(() -> notFound(year, LOCAL_DEPUTY));
     ElectionSummary brand =
-        find(year, "GOVERNOR")
-            .or(() -> find(year, "PRESIDENT"))
+        find(state, year, "GOVERNOR")
+            .or(() -> find(state, year, "PRESIDENT"))
             .orElseThrow(() -> notFound(year, "GOVERNOR/PRESIDENT"));
     Optional<ElectionSummary> previous =
-        history.elections().stream()
+        history.elections(state).stream()
             .filter(e -> e.office().equals(MAYOR) && e.year() < year)
             .max(Comparator.comparingInt(ElectionSummary::year));
 
     TerritoryLevel muni = TerritoryLevel.MUNICIPALITY;
     TerritoryLevel dist = TerritoryLevel.LOCAL_DISTRICT;
-    TerritoryReport brandBloc = elections.byTerritory(year, brand.office(), muni, "bloc");
-    TerritoryReport brandBlocByDistrict = elections.byTerritory(year, brand.office(), dist, "bloc");
+    TerritoryReport brandBloc = elections.byTerritory(state, year, brand.office(), muni, "bloc");
+    TerritoryReport brandBlocByDistrict =
+        elections.byTerritory(state, year, brand.office(), dist, "bloc");
 
     List<TerritoryRisk> municipalities =
         risks(
+            state,
             mayor,
-            elections.byTerritory(year, MAYOR, muni, "candidacy"),
-            elections.byTerritory(year, MAYOR, muni, "bloc"),
+            elections.byTerritory(state, year, MAYOR, muni, "candidacy"),
+            elections.byTerritory(state, year, MAYOR, muni, "bloc"),
             brandBloc,
-            previous.map(p -> elections.byTerritory(p.year(), MAYOR, muni, "bloc")).orElse(null));
+            previous
+                .map(p -> elections.byTerritory(state, p.year(), MAYOR, muni, "bloc"))
+                .orElse(null));
     List<TerritoryRisk> districts =
         risks(
+            state,
             deputy,
-            elections.byTerritory(year, LOCAL_DEPUTY, dist, "candidacy"),
-            elections.byTerritory(year, LOCAL_DEPUTY, dist, "bloc"),
+            elections.byTerritory(state, year, LOCAL_DEPUTY, dist, "candidacy"),
+            elections.byTerritory(state, year, LOCAL_DEPUTY, dist, "bloc"),
             brandBlocByDistrict,
             null);
 
-    TerritoryReport mayorBloc = elections.byTerritory(year, MAYOR, muni, "bloc");
-    List<SectionRisk> sections = sections(mayor, brand, municipalities);
-    List<RivalTrend> rivals = rivals(year);
+    TerritoryReport mayorBloc = elections.byTerritory(state, year, MAYOR, muni, "bloc");
+    List<SectionRisk> sections = sections(state, mayor, brand, municipalities);
+    List<RivalTrend> rivals = rivals(state, year);
 
     double brand4t = pct4t(brandBloc.state());
     double mayor4t = pct4t(mayorBloc.state());
-    long sectionCount = history.sectionTurnout(mayor.id()).size();
+    long sectionCount = history.sectionTurnout(mayor.id(), state).size();
     AnalysisKpis kpis =
         new AnalysisKpis(
             brand4t,
@@ -139,12 +147,14 @@ public class AnalysisService {
   // ---------------------------------------------------------------- territorios
 
   private List<TerritoryRisk> risks(
+      int state,
       ElectionSummary election,
       TerritoryReport candidacies,
       TerritoryReport blocs,
       TerritoryReport brand,
       TerritoryReport previous) {
-    Map<String, CandidacyTraits> traits = history.candidacyTraits(election.id(), election.year());
+    Map<String, CandidacyTraits> traits =
+        history.candidacyTraits(election.id(), state, election.year());
     Map<Integer, TerritoryResult> blocBy = byCode(blocs);
     Map<Integer, TerritoryResult> brandBy = byCode(brand);
     Map<Integer, TerritoryResult> previousBy = previous == null ? Map.of() : byCode(previous);
@@ -197,14 +207,17 @@ public class AnalysisService {
   // ---------------------------------------------------------------- secciones
 
   private List<SectionRisk> sections(
-      ElectionSummary mayor, ElectionSummary brand, List<TerritoryRisk> municipalities) {
-    Map<String, CandidacyTraits> traits = history.candidacyTraits(mayor.id(), mayor.year());
-    Map<String, GroupMeta> meta = history.groupMeta(mayor.id(), mayor.year(), "candidacy");
-    Map<Integer, List<GroupRow>> votes = bySection(history.sectionGroups(mayor.id(), "candidacy"));
-    Map<Integer, List<GroupRow>> blocs = bySection(history.sectionGroups(mayor.id(), "bloc"));
-    Map<Integer, List<GroupRow>> brandBlocs = bySection(history.sectionGroups(brand.id(), "bloc"));
+      int state, ElectionSummary mayor, ElectionSummary brand, List<TerritoryRisk> municipalities) {
+    Map<String, CandidacyTraits> traits = history.candidacyTraits(mayor.id(), state, mayor.year());
+    Map<String, GroupMeta> meta = history.groupMeta(mayor.id(), state, mayor.year(), "candidacy");
+    Map<Integer, List<GroupRow>> votes =
+        bySection(history.sectionGroups(mayor.id(), state, "candidacy"));
+    Map<Integer, List<GroupRow>> blocs =
+        bySection(history.sectionGroups(mayor.id(), state, "bloc"));
+    Map<Integer, List<GroupRow>> brandBlocs =
+        bySection(history.sectionGroups(brand.id(), state, "bloc"));
     Map<Integer, Long> brandTotals =
-        history.sectionTurnout(brand.id()).stream()
+        history.sectionTurnout(brand.id(), state).stream()
             .collect(
                 Collectors.toMap(
                     SectionTurnoutRow::section, SectionTurnoutRow::totalVotes, Long::sum));
@@ -212,7 +225,7 @@ public class AnalysisService {
         municipalities.stream().collect(Collectors.toMap(TerritoryRisk::code, TerritoryRisk::name));
 
     List<SectionRisk> out = new ArrayList<>();
-    for (SectionTurnoutRow s : history.sectionTurnout(mayor.id())) {
+    for (SectionTurnoutRow s : history.sectionTurnout(mayor.id(), state)) {
       List<GroupRow> rows = votes.getOrDefault(s.section(), List.of());
       GroupRow best4t = best(rows, r -> is4t(r.code(), traits));
       GroupRow rival = best(rows, r -> !is4t(r.code(), traits));
@@ -260,9 +273,9 @@ public class AnalysisService {
   // ---------------------------------------------------------------- rivales
 
   /** MC, PRD, PRI y PAN (votos de su emblema) e independientes, en todos los ayuntamientos. */
-  private List<RivalTrend> rivals(int upTo) {
+  private List<RivalTrend> rivals(int state, int upTo) {
     List<ElectionSummary> mayors =
-        history.elections().stream()
+        history.elections(state).stream()
             .filter(e -> e.office().equals(MAYOR) && e.year() <= upTo)
             .sorted(Comparator.comparingInt(ElectionSummary::year))
             .toList();
@@ -270,9 +283,13 @@ public class AnalysisService {
     Map<String, String> colors = new java.util.HashMap<>();
     for (ElectionSummary e : mayors) {
       TerritoryResult parties =
-          elections.byTerritory(e.year(), MAYOR, TerritoryLevel.MUNICIPALITY, "party").state();
+          elections
+              .byTerritory(state, e.year(), MAYOR, TerritoryLevel.MUNICIPALITY, "party")
+              .state();
       TerritoryResult candidacies =
-          elections.byTerritory(e.year(), MAYOR, TerritoryLevel.MUNICIPALITY, "candidacy").state();
+          elections
+              .byTerritory(state, e.year(), MAYOR, TerritoryLevel.MUNICIPALITY, "candidacy")
+              .state();
       for (String code : RIVAL_PARTIES) {
         GroupVotes g =
             parties.groups().stream().filter(v -> v.code().equals(code)).findFirst().orElse(null);
@@ -469,8 +486,8 @@ public class AnalysisService {
 
   // ---------------------------------------------------------------- utilidades
 
-  private Optional<ElectionSummary> find(int year, String office) {
-    return history.election(year, office);
+  private Optional<ElectionSummary> find(int state, int year, String office) {
+    return history.election(year, office, state);
   }
 
   private static ElectoralHistoryException notFound(int year, String office) {

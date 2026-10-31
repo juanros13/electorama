@@ -23,6 +23,7 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
 
   String SUMMARY_SELECT =
       "SELECT p.id AS id, p.level AS level, p.code AS code, p.section_key AS sectionKey,"
+          + "       p.level_id AS levelId, lv.rank AS levelRank, lv.name_singular AS levelName,"
           + "       p.goal AS goal,"
           + "       p.child_limit AS childLimit, p.parent_position_id AS parentId,"
           + "       p.structure_id AS structureId,"
@@ -36,6 +37,7 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
           + "         WHERE m.position_id = p.id AND upper(m.validity) IS NULL) AS membershipCount"
           + " FROM position p"
           + " JOIN territory t ON t.id = p.territory_id"
+          + " JOIN campaign_level lv ON lv.id = p.level_id"
           + " LEFT JOIN LATERAL ("
           + "     SELECT a.auth_id, a.person_id FROM assignment a"
           + "      WHERE a.position_id = p.id AND a.role = 'HOLDER'"
@@ -61,12 +63,14 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
       nativeQuery = true)
   List<PositionSummary> children(@Param("parentId") Long parentId);
 
-  /** La raíz de una estructura: los puestos de referente vigentes. */
+  /** La raíz de una estructura: los puestos vigentes del nivel de la cúspide de su campaña. */
   @Query(
       value =
           SUMMARY_SELECT
-              + " WHERE p.structure_id = :structureId AND p.level = 'REFERENT'"
-              + "   AND p.valid_to IS NULL ORDER BY t.code, p.id",
+              + " WHERE p.structure_id = :structureId AND p.valid_to IS NULL"
+              + "   AND lv.rank = (SELECT min(x.rank) FROM campaign_level x"
+              + "                   WHERE x.campaign_id = lv.campaign_id)"
+              + " ORDER BY t.code, p.id",
       nativeQuery = true)
   List<PositionSummary> roots(@Param("structureId") Long structureId);
 
@@ -240,6 +244,15 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
   // La rama de una cuenta son los puestos vigentes que ocupa (de cualquier nivel) y todo lo que
   // cuelga de ellos: el referente ve su municipio, el promotor a sus movilizadores.
 
+  /** Si la cuenta es titular vigente de algún puesto vigente, de cualquier campaña o nivel. */
+  @Query(
+      value =
+          "SELECT EXISTS (SELECT 1 FROM assignment a"
+              + "  JOIN position p ON p.id = a.position_id AND p.valid_to IS NULL"
+              + " WHERE a.auth_id = :authId AND a.role = 'HOLDER' AND upper(a.validity) IS NULL)",
+      nativeQuery = true)
+  boolean holdsAnyPosition(@Param("authId") String authId);
+
   /** Los puestos vigentes que ocupa una cuenta en una estructura, de cualquier nivel. */
   @Query(
       value =
@@ -254,7 +267,7 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
 
   /**
    * Si el puesto cuelga (o es, con {@code includeSelf}) de un puesto vigente que ocupa la cuenta.
-   * Sube por el organigrama desde el puesto: son a lo más tres niveles.
+   * Sube por el organigrama desde el puesto, tantos niveles como tenga la campaña.
    */
   @Query(
       value =
@@ -319,10 +332,15 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
               + " SELECT p.id AS positionId, p.level AS level, p.section_key AS sectionKey,"
               + "        t.code AS territoryCode, s.type AS structureType,"
               + "        c.status AS campaignStatus,"
-              + "        (SELECT u.id FROM up u WHERE u.start_id = p.id AND u.level = 'REFERENT'"
-              + "          LIMIT 1) AS rootId"
+              + "        lv.role_name AS roleName, lv.alternate_role_name AS alternateRoleName,"
+              + "        coalesce("
+              + "          (SELECT u.id FROM up u WHERE u.start_id = p.id AND u.level = 'REFERENT'"
+              + "            LIMIT 1),"
+              + "          (SELECT u.id FROM up u WHERE u.start_id = p.id"
+              + "              AND u.parent_position_id IS NULL LIMIT 1)) AS rootId"
               + "   FROM held h"
               + "   JOIN position p ON p.id = h.id"
+              + "   JOIN campaign_level lv ON lv.id = p.level_id"
               + "   JOIN structure s ON s.id = p.structure_id"
               + "   JOIN campaign c ON c.id = s.campaign_id"
               + "   JOIN territory t ON t.id = p.territory_id"
@@ -330,7 +348,10 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
       nativeQuery = true)
   List<HeldPosition> heldWithRoot(@Param("authId") String authId);
 
-  /** El referente raíz de la rama de un puesto (el propio puesto si es referente). */
+  /**
+   * La raíz de la rama de un puesto: el puesto con función REFERENT del que cuelga (el propio
+   * puesto si lo es) o, si no hay, el de la cúspide.
+   */
   @Query(
       value =
           "WITH RECURSIVE up AS ("
@@ -338,7 +359,9 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
               + "   UNION ALL"
               + "   SELECT p.id, p.parent_position_id, p.level FROM position p"
               + "     JOIN up ON p.id = up.parent_position_id)"
-              + " SELECT id FROM up WHERE level = 'REFERENT' LIMIT 1",
+              + " SELECT coalesce("
+              + "   (SELECT id FROM up WHERE level = 'REFERENT' LIMIT 1),"
+              + "   (SELECT id FROM up WHERE parent_position_id IS NULL LIMIT 1))",
       nativeQuery = true)
   Optional<Long> rootOf(@Param("positionId") Long positionId);
 

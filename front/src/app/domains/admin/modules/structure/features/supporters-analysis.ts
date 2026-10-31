@@ -383,8 +383,8 @@ export default class SupportersAnalysis {
             coordinators: this.supportersApi.getCoordinators(closed.id),
             profile: this.supportersApi.getProfile(closed.id),
             catalog: this.allSections(),
-            governor: this.electoral.getAllSections(closed.year, 'GOVERNOR'),
-            mayor: this.electoral.getAllSections(closed.year, 'MAYOR'),
+            governor: this.electoral.getAllSections(closed.year ?? 0, 'GOVERNOR'),
+            mayor: this.electoral.getAllSections(closed.year ?? 0, 'MAYOR'),
           });
         }),
         catchError(() => {

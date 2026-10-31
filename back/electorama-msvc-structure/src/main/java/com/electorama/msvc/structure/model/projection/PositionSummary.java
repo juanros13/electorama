@@ -11,7 +11,15 @@ public interface PositionSummary {
 
   Long getId();
 
+  /** La función heredada del nivel (REFERENT, ZONE_COORDINATOR, PROMOTER) o null. */
   String getLevel();
+
+  /** El nivel de la campaña (V3): su id, su rango (1 = cúspide) y su nombre. */
+  Long getLevelId();
+
+  Integer getLevelRank();
+
+  String getLevelName();
 
   String getCode();
 

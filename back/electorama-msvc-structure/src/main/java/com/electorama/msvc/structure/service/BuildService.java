@@ -13,14 +13,18 @@ import com.electorama.msvc.structure.model.dto.BuildRequests.SectionMeta;
 import com.electorama.msvc.structure.model.dto.BuildRequests.SectionSeat;
 import com.electorama.msvc.structure.model.dto.BuildRequests.VacancyResult;
 import com.electorama.msvc.structure.model.dto.RotateRequest;
+import com.electorama.msvc.structure.model.entity.CampaignLevel;
 import com.electorama.msvc.structure.model.entity.Person;
 import com.electorama.msvc.structure.model.enums.Level;
+import com.electorama.msvc.structure.model.enums.StructureType;
+import com.electorama.msvc.structure.model.enums.TerritoryType;
 import com.electorama.msvc.structure.model.projection.HeldPosition;
 import com.electorama.msvc.structure.model.projection.PositionSummary;
 import com.electorama.msvc.structure.model.repository.BuildRepository;
 import com.electorama.msvc.structure.model.repository.BuildRepository.PositionRow;
 import com.electorama.msvc.structure.model.repository.BuildRepository.StructureRow;
 import com.electorama.msvc.structure.model.repository.BuildRepository.TerritoryRow;
+import com.electorama.msvc.structure.model.repository.CampaignLevelRepository;
 import com.electorama.msvc.structure.model.repository.PersonRepository;
 import com.electorama.msvc.structure.model.repository.PositionRepository;
 import com.electorama.msvc.structure.service.rest.UsersClient;
@@ -43,20 +47,19 @@ import org.springframework.transaction.annotation.Transactional;
  * Armar la estructura de una campaña desde cero: crear puestos, generar las vacantes que pide la
  * meta y nombrar a sus titulares (con su cuenta).
  *
- * <p>Las reglas de la campaña (Excel "estructura estatal"): un referente por municipio; un
- * "promotor" (coordinador de zona) por cada 200 de meta de la sección; un "movilizador" (promotor)
- * por cada 20. Las reglas duras —el padre de rango mayor, el territorio contenido en el del padre,
- * no escribir en una campaña cerrada— las pone la base.
+ * <p>Los niveles, sus nombres, dónde va cada uno y su meta los configura cada campaña ({@code
+ * campaign_level}, V3). En 2024 y 2027: un coordinador (REFERENT) por municipio; un promotor por
+ * cada 200 de meta de la sección; un movilizador por cada 20. Las reglas duras —el padre de rango
+ * mayor, el territorio contenido en el del padre, no escribir en una campaña cerrada— las pone la
+ * base.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BuildService {
 
-  public static final int META_PER_COORDINATOR = 200;
-  public static final int META_PER_PROMOTER = 20;
-
   private final BuildRepository build;
+  private final CampaignLevelRepository levels;
   private final PositionService positions;
   private final PersonService personService;
   private final PersonRepository persons;
@@ -67,135 +70,244 @@ public class BuildService {
 
   // ---------------------------------------------------------------- crear
 
+  /**
+   * Crea un puesto de cualquier nivel de la campaña. El nivel va por {@code levelId} o, como antes,
+   * por su función ({@code level}). La cúspide no cuelga de nadie; los demás cuelgan de un puesto
+   * del nivel inmediato superior. El territorio sale del tipo del nivel.
+   */
   @Transactional
-  public PositionSummary create(CreatePosition request) {
-    if (request == null || request.level() == null) {
-      throw StructureException.badRequest("falta el nivel del puesto");
+  public PositionSummary create(CreatePosition r) {
+    if (r == null) {
+      throw StructureException.badRequest("faltan los datos del puesto");
     }
-    return switch (request.level()) {
-      case REFERENT -> positions.get(createReferent(request));
-      case ZONE_COORDINATOR -> positions.get(createCoordinator(request));
-      case PROMOTER -> positions.get(createPromoter(request));
+    PositionRow parent = r.parentPositionId() == null ? null : current(r.parentPositionId());
+    if (parent != null
+        && r.structureId() != null
+        && !r.structureId().equals(parent.structureId())) {
+      throw StructureException.badRequest("el puesto padre es de otra estructura");
+    }
+    StructureRow structure =
+        writableStructure(parent != null ? parent.structureId() : r.structureId());
+    List<CampaignLevel> all = levels.findByCampaignIdOrderByRank(structure.campaignId());
+    CampaignLevel level = requestedLevel(all, r);
+
+    CampaignLevel above = above(all, level);
+    if (above == null && parent != null) {
+      throw StructureException.badRequest(
+          "un " + level.getNameSingular() + " no cuelga de nadie: es la cúspide");
+    }
+    if (above != null) {
+      if (parent == null) {
+        throw StructureException.badRequest(
+            "falta el puesto de " + above.getNameSingular() + " del que cuelga");
+      }
+      if (!above.getId().equals(parent.levelId())) {
+        throw StructureException.badRequest(
+            "un "
+                + level.getNameSingular()
+                + " cuelga de un "
+                + above.getNameSingular()
+                + ", no de un "
+                + levelOf(all, parent).getNameSingular());
+      }
+    }
+
+    TerritoryRow territory = placement(level, r, parent, structure);
+    if (level.getLevelFunction() == Level.REFERENT
+        && build.hasPositionOn(structure.id(), territory.id(), level.getId())) {
+      throw StructureException.conflict(
+          "ese municipio ya tiene " + level.getNameSingular() + " en esta estructura");
+    }
+    long id =
+        build.insertPosition(
+            structure.id(),
+            level.getId(),
+            parent == null ? null : parent.id(),
+            territory,
+            r.goal() != null ? r.goal() : level.getDefaultGoal(),
+            r.childLimit() != null ? r.childLimit() : level.getDefaultChildLimit(),
+            prefix(level));
+    return positions.get(id);
+  }
+
+  /** El nivel pedido: por id (de la campaña de la estructura) o por su función heredada. */
+  static CampaignLevel requestedLevel(List<CampaignLevel> all, CreatePosition r) {
+    if (r.levelId() != null) {
+      return all.stream()
+          .filter(l -> l.getId().equals(r.levelId()))
+          .findFirst()
+          .orElseThrow(
+              () ->
+                  StructureException.badRequest(
+                      "el nivel " + r.levelId() + " no es de esta campaña"));
+    }
+    if (r.level() != null) {
+      return all.stream()
+          .filter(l -> l.getLevelFunction() == r.level())
+          .findFirst()
+          .orElseThrow(
+              () -> StructureException.badRequest("la campaña no tiene un nivel " + r.level()));
+    }
+    throw StructureException.badRequest("falta el nivel del puesto");
+  }
+
+  /**
+   * Dónde va el puesto. Un {@code territoryId} explícito manda; si no, lo decide el tipo del nivel:
+   * el estado de la campaña, el municipio o la sección pedidos, o el del padre si ya es de ese
+   * tipo.
+   */
+  private TerritoryRow placement(
+      CampaignLevel level, CreatePosition r, PositionRow parent, StructureRow structure) {
+    if (r.territoryId() != null) {
+      return build
+          .territoryById(r.territoryId())
+          .orElseThrow(() -> StructureException.notFound("el territorio", r.territoryId()));
+    }
+    TerritoryType type = level.getTerritoryType();
+    String name = level.getNameSingular();
+    if (type == null) {
+      if (r.sectionGeoId() != null) {
+        return section(r.sectionGeoId());
+      }
+      if (r.municipalityGeoId() != null) {
+        return municipality(r.municipalityGeoId());
+      }
+      if (parent != null) {
+        return territoryOf(parent);
+      }
+      return campaignTerritory(structure, name);
+    }
+    return switch (type) {
+      case STATE -> parent != null && "STATE".equals(parent.territoryType())
+          ? territoryOf(parent)
+          : campaignTerritory(structure, name);
+      case MUNICIPALITY -> {
+        if (r.municipalityGeoId() != null) {
+          yield municipality(r.municipalityGeoId());
+        }
+        if (parent != null && "MUNICIPALITY".equals(parent.territoryType())) {
+          yield territoryOf(parent);
+        }
+        throw StructureException.badRequest(
+            "el " + name + " va sobre un municipio (municipalityGeoId)");
+      }
+      case SECTION -> {
+        if (r.sectionGeoId() != null) {
+          yield section(r.sectionGeoId());
+        }
+        if (parent != null && "SECTION".equals(parent.territoryType())) {
+          yield territoryOf(parent);
+        }
+        throw StructureException.badRequest("el " + name + " va sobre una sección (sectionGeoId)");
+      }
+      case FRAGMENT -> throw StructureException.badRequest(
+          "el " + name + " va sobre un fragmento de sección: indica su territoryId");
     };
   }
 
-  private long createReferent(CreatePosition r) {
-    StructureRow structure = writableStructure(r.structureId());
-    if (r.parentPositionId() != null) {
-      throw StructureException.badRequest("un referente no cuelga de nadie");
+  private TerritoryRow campaignTerritory(StructureRow structure, String levelName) {
+    if (structure.campaignTerritoryId() == null) {
+      throw StructureException.badRequest(
+          "la campaña no tiene territorio: indica dónde va el " + levelName + " (territoryId)");
     }
-    if (r.municipalityGeoId() == null) {
-      throw StructureException.badRequest("el referente va sobre un municipio (municipalityGeoId)");
-    }
-    TerritoryRow municipality =
-        build
-            .municipalityTerritory(r.municipalityGeoId())
-            .orElseThrow(() -> StructureException.notFound("el municipio", r.municipalityGeoId()));
-    if (build.hasReferent(structure.id(), municipality.id())) {
-      throw StructureException.conflict("ese municipio ya tiene referente en esta estructura");
-    }
-    return build.insertPosition(
-        structure.id(), "REFERENT", null, municipality, r.goal(), r.childLimit(), "REF");
+    return build
+        .territoryById(structure.campaignTerritoryId())
+        .orElseThrow(
+            () -> StructureException.notFound("el territorio", structure.campaignTerritoryId()));
   }
 
-  private long createCoordinator(CreatePosition r) {
-    PositionRow referent = parent(r.parentPositionId(), Level.REFERENT);
-    if (r.sectionGeoId() == null) {
-      throw StructureException.badRequest("el promotor va sobre una sección (sectionGeoId)");
+  /** El prefijo del código del puesto; las funciones conservan el suyo (las compat lo buscan). */
+  static String prefix(CampaignLevel level) {
+    if (level.getLevelFunction() != null) {
+      return switch (level.getLevelFunction()) {
+        case REFERENT -> "REF";
+        case ZONE_COORDINATOR -> "CZ";
+        case PROMOTER -> "MOV";
+      };
     }
-    TerritoryRow section = section(r.sectionGeoId());
-    int goal = r.goal() == null ? META_PER_COORDINATOR : r.goal();
-    return build.insertPosition(
-        referent.structureId(),
-        "ZONE_COORDINATOR",
-        referent.id(),
-        section,
-        goal,
-        r.childLimit(),
-        "CZ");
-  }
-
-  private long createPromoter(CreatePosition r) {
-    PositionRow coordinator = parent(r.parentPositionId(), Level.ZONE_COORDINATOR);
-    TerritoryRow section =
-        r.sectionGeoId() == null ? territoryOf(coordinator) : section(r.sectionGeoId());
-    int goal = r.goal() == null ? META_PER_PROMOTER : r.goal();
-    return build.insertPosition(
-        coordinator.structureId(),
-        "PROMOTER",
-        coordinator.id(),
-        section,
-        goal,
-        r.childLimit(),
-        "MOV");
+    String code = level.getCode();
+    return code.length() > 12 ? code.substring(0, 12) : code;
   }
 
   // ---------------------------------------------------------------- vacantes
 
   /**
-   * Crea debajo del puesto las vacantes que faltan para cubrir la meta. Idempotente: cuenta los
-   * hijos vigentes y sólo crea la diferencia.
+   * Crea debajo del puesto las vacantes del nivel siguiente que faltan para cubrir la meta: una por
+   * cada {@code defaultGoal} del nivel de abajo. Idempotente: cuenta los hijos vigentes y sólo crea
+   * la diferencia. Va por sección: con {@code sections} (la meta de cada una) o, si el puesto ya
+   * está sobre una sección, con su propia meta.
    */
   @Transactional
   public List<VacancyResult> vacancies(Long positionId, List<SectionMeta> sections) {
-    PositionRow position =
-        build
-            .position(positionId)
-            .orElseThrow(() -> StructureException.notFound("el puesto vigente", positionId));
-    writableStructure(position.structureId());
-    List<VacancyResult> out = new ArrayList<>();
+    PositionRow position = current(positionId);
+    StructureRow structure = writableStructure(position.structureId());
+    List<CampaignLevel> all = levels.findByCampaignIdOrderByRank(structure.campaignId());
+    CampaignLevel level = levelOf(all, position);
+    CampaignLevel child = below(all, level);
+    if (child == null) {
+      throw StructureException.badRequest(
+          "un " + level.getNameSingular() + " no tiene puestos debajo");
+    }
+    Integer per = child.getDefaultGoal();
+    if (per == null || per <= 0) {
+      throw StructureException.badRequest(
+          "configura la meta por defecto de "
+              + child.getNamePlural()
+              + " en la campaña para generar sus vacantes");
+    }
+    TerritoryType childType = child.getTerritoryType();
+    if (childType != null && childType != TerritoryType.SECTION) {
+      throw StructureException.badRequest(
+          "las vacantes se generan por sección: crea los puestos de "
+              + child.getNamePlural()
+              + " uno por uno");
+    }
+    boolean bySection = sections != null && !sections.isEmpty();
+    if (!bySection && !"SECTION".equals(position.territoryType())) {
+      throw StructureException.badRequest("faltan las secciones con su meta");
+    }
 
-    switch (Level.valueOf(position.level())) {
-      case REFERENT -> {
-        if (sections == null || sections.isEmpty()) {
-          throw StructureException.badRequest("faltan las secciones con su meta");
-        }
-        for (SectionMeta s : sections) {
-          TerritoryRow section = section(s.sectionGeoId());
-          int needed = ceilDiv(s.meta(), META_PER_COORDINATOR);
-          int existing = build.countChildren(position.id(), "ZONE_COORDINATOR", section.id());
-          int created = 0;
-          for (int i = existing; i < needed; i++) {
-            build.insertPosition(
-                position.structureId(),
-                "ZONE_COORDINATOR",
-                position.id(),
-                section,
-                META_PER_COORDINATOR,
-                null,
-                "CZ");
-            created++;
-          }
-          out.add(new VacancyResult(s.sectionGeoId(), needed, existing, created));
-        }
+    List<VacancyResult> out = new ArrayList<>();
+    if (bySection) {
+      for (SectionMeta s : sections) {
+        TerritoryRow section = section(s.sectionGeoId());
+        out.add(fill(position, child, section, s.sectionGeoId(), s.meta(), per, section.id()));
       }
-      case ZONE_COORDINATOR -> {
-        int goal = position.goal() == null ? META_PER_COORDINATOR : position.goal();
-        int needed = ceilDiv(goal, META_PER_PROMOTER);
-        int existing = build.countChildren(position.id(), "PROMOTER", null);
-        TerritoryRow section = territoryOf(position);
-        int created = 0;
-        for (int i = existing; i < needed; i++) {
-          build.insertPosition(
-              position.structureId(),
-              "PROMOTER",
-              position.id(),
-              section,
-              META_PER_PROMOTER,
-              null,
-              "MOV");
-          created++;
-        }
-        out.add(new VacancyResult(position.sectionGeoId(), needed, existing, created));
-      }
-      case PROMOTER -> throw StructureException.badRequest(
-          "un movilizador no tiene puestos debajo");
+    } else {
+      Integer goal = position.goal() != null ? position.goal() : level.getDefaultGoal();
+      out.add(
+          fill(position, child, territoryOf(position), position.sectionGeoId(), goal, per, null));
     }
     log.info(
         "vacantes bajo el puesto {}: {} creadas",
         positionId,
         out.stream().mapToInt(VacancyResult::created).sum());
     return out;
+  }
+
+  private VacancyResult fill(
+      PositionRow parent,
+      CampaignLevel child,
+      TerritoryRow territory,
+      Integer sectionGeoId,
+      Integer meta,
+      int per,
+      Long countIn) {
+    int needed = ceilDiv(meta, per);
+    int existing = build.countChildren(parent.id(), child.getId(), countIn);
+    int created = 0;
+    for (int i = existing; i < needed; i++) {
+      build.insertPosition(
+          parent.structureId(),
+          child.getId(),
+          parent.id(),
+          territory,
+          per,
+          child.getDefaultChildLimit(),
+          prefix(child));
+      created++;
+    }
+    return new VacancyResult(sectionGeoId, needed, existing, created);
   }
 
   // ---------------------------------------------------------------- nombrar
@@ -213,7 +325,7 @@ public class BuildService {
             .position(positionId)
             .orElseThrow(() -> StructureException.notFound("el puesto vigente", positionId));
     StructureRow structure = writableStructure(position.structureId());
-    String role = roleFor(Level.valueOf(position.level()), structure.type());
+    String role = roleOf(position, structure);
 
     // la persona se resuelve pero todavía no se guarda: si la cuenta falla (p.ej. ya existe), no
     // queda una persona suelta
@@ -333,7 +445,7 @@ public class BuildService {
             .position(positionId)
             .orElseThrow(() -> StructureException.notFound("el puesto vigente", positionId));
     StructureRow structure = writableStructure(position.structureId());
-    String grant = roleFor(Level.valueOf(position.level()), structure.type());
+    String grant = roleOf(position, structure);
     Long root = positionRepo.rootOf(positionId).orElse(positionId);
 
     List<HeldPosition> held = positionRepo.heldWithRoot(authId);
@@ -355,12 +467,12 @@ public class BuildService {
             .filter(h -> !leaving.contains(h.getPositionId()))
             .filter(h -> !h.getPositionId().equals(positionId))
             .filter(h -> !"CLOSED".equals(h.getCampaignStatus()))
-            .map(h -> roleFor(Level.valueOf(h.getLevel()), h.getStructureType()))
+            .map(BuildService::roleOf)
             .collect(Collectors.toSet());
     stillNeeded.add(grant);
     List<String> revoke =
         sameBranch.stream()
-            .map(h -> roleFor(Level.valueOf(h.getLevel()), h.getStructureType()))
+            .map(BuildService::roleOf)
             .filter(r -> !stillNeeded.contains(r))
             .distinct()
             .sorted()
@@ -471,14 +583,57 @@ public class BuildService {
 
   // ---------------------------------------------------------------- utilidades
 
-  /** El rol del realm que le toca al titular. Los nombres van con las erratas del realm. */
-  static String roleFor(Level level, String structureType) {
-    boolean alternate = "ALTERNATE".equals(structureType);
-    return switch (level) {
-      case REFERENT -> alternate ? "CORDINATOR_MUNICIPAL_ALT" : "CORDINATOR_MUNICIPAL";
-      case ZONE_COORDINATOR -> alternate ? "CORDINATOR_ZONE_ALT" : "CORDINATOR_ZONE";
-      case PROMOTER -> "PROMOTER";
-    };
+  /**
+   * El rol del realm que le toca al titular del puesto: el de su nivel (el alterno en la alterna).
+   */
+  private String roleOf(PositionRow position, StructureRow structure) {
+    CampaignLevel level =
+        levels
+            .findById(position.levelId())
+            .orElseThrow(() -> StructureException.notFound("el nivel", position.levelId()));
+    return level.roleFor(StructureType.valueOf(structure.type()));
+  }
+
+  /** El rol de un puesto que ya ocupa la cuenta, con los nombres que trae la consulta. */
+  static String roleOf(HeldPosition h) {
+    return "ALTERNATE".equals(h.getStructureType()) && h.getAlternateRoleName() != null
+        ? h.getAlternateRoleName()
+        : h.getRoleName();
+  }
+
+  private PositionRow current(Long positionId) {
+    return build
+        .position(positionId)
+        .orElseThrow(() -> StructureException.notFound("el puesto vigente", positionId));
+  }
+
+  private static CampaignLevel levelOf(List<CampaignLevel> all, PositionRow position) {
+    return all.stream()
+        .filter(l -> l.getId().equals(position.levelId()))
+        .findFirst()
+        .orElseThrow(() -> StructureException.notFound("el nivel", position.levelId()));
+  }
+
+  /** El nivel inmediato superior; null en la cúspide. */
+  static CampaignLevel above(List<CampaignLevel> all, CampaignLevel level) {
+    CampaignLevel found = null;
+    for (CampaignLevel l : all) {
+      if (l.getRank() < level.getRank() && (found == null || l.getRank() > found.getRank())) {
+        found = l;
+      }
+    }
+    return found;
+  }
+
+  /** El nivel inmediato inferior; null en el último. */
+  static CampaignLevel below(List<CampaignLevel> all, CampaignLevel level) {
+    CampaignLevel found = null;
+    for (CampaignLevel l : all) {
+      if (l.getRank() > level.getRank() && (found == null || l.getRank() < found.getRank())) {
+        found = l;
+      }
+    }
+    return found;
   }
 
   private StructureRow writableStructure(Long structureId) {
@@ -496,26 +651,16 @@ public class BuildService {
     return structure;
   }
 
-  private PositionRow parent(Long parentId, Level expected) {
-    if (parentId == null) {
-      throw StructureException.badRequest("falta el puesto del que cuelga");
-    }
-    PositionRow parent =
-        build
-            .position(parentId)
-            .orElseThrow(() -> StructureException.notFound("el puesto vigente", parentId));
-    if (!expected.name().equals(parent.level())) {
-      throw StructureException.badRequest(
-          "ese puesto cuelga de un " + expected.name() + ", no de un " + parent.level());
-    }
-    writableStructure(parent.structureId());
-    return parent;
-  }
-
   private TerritoryRow section(Integer sectionGeoId) {
     return build
         .sectionTerritory(sectionGeoId)
         .orElseThrow(() -> StructureException.notFound("la sección", sectionGeoId));
+  }
+
+  private TerritoryRow municipality(Integer municipalityGeoId) {
+    return build
+        .municipalityTerritory(municipalityGeoId)
+        .orElseThrow(() -> StructureException.notFound("el municipio", municipalityGeoId));
   }
 
   private TerritoryRow territoryOf(PositionRow position) {

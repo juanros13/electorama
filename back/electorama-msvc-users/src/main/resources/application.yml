@@ -5,6 +5,8 @@ app:
       realm: ${KEYCLOAK_REALM:electorama-realm}
       clientId: ${KEYCLOAK_ADMIN_CLIENT_ID:admin-cli}
       # Secretos: NO versionar. Inyectar por Secret de k8s / variable de entorno. ROTAR (estaban en git).
+      # Con secreto: cuenta de servicio del cliente en el realm de la app. Sin él: user/pass de master.
+      secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
       user: ${KEYCLOAK_ADMIN_USER:admin}
       pass: ${KEYCLOAK_ADMIN_PASSWORD:}
   security:

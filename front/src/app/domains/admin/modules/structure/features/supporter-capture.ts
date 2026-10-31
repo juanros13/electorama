@@ -1,4 +1,4 @@
-import { LEVEL_NAMES } from '@/app/core/data/levels';
+import { LevelCatalog } from '@/app/core/data/level-catalog';
 import { PageHeader } from '@/app/shared/ui/page-header';
 import { SectionCard } from '@/app/shared/ui/section-card';
 import { showError, showSuccess, showWarning } from '@/app/shared/ui/swal';
@@ -28,9 +28,8 @@ import {
 } from '../data/capture.service';
 import { TerritoryService } from '../data/territory.service';
 import { CatalogSection } from '../data/territory.types';
+import { WorkingCampaign } from '../data/working-campaign';
 import { GeoPoint, MapSupporter, SupporterLocationMap } from './supporter-location-map';
-
-const STATE_ID = 27;
 
 const CURP = /^[A-Z][AEIOUX][A-Z]{2}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[0-9A-Z]\d$/;
 const INE = /^[A-Z]{6}\d{8}[A-Z]\d{3}$/;
@@ -112,8 +111,11 @@ const EMPTY: Form = {
 })
 export default class SupporterCapture {
   private captureApi = inject(CaptureService);
+  /** Los nombres de nivel de la campaña activa (V3). */
+  private levelCatalog = inject(LevelCatalog);
   private territory = inject(TerritoryService);
   private destroyRef = inject(DestroyRef);
+  private working = inject(WorkingCampaign);
 
   protected readonly invitedOptions: { value: PeopleInvited; label: string }[] = [
     { value: 'uno', label: '1' },
@@ -166,6 +168,7 @@ export default class SupporterCapture {
   private reload = signal(0);
 
   constructor() {
+    this.levelCatalog.load();
     this.captureApi
       .getTargets()
       .pipe(
@@ -187,8 +190,18 @@ export default class SupporterCapture {
         map((t) => t?.municipalityGeoId ?? null),
         distinctUntilChanged(),
         switchMap((mun) =>
-          this.territory
-            .getSections(STATE_ID, { municipalityId: mun, status: true }, 0, mun ? 500 : 1500)
+          this.working
+            .load()
+            .pipe(
+              switchMap(() =>
+                this.territory.getSections(
+                  this.working.stateId(),
+                  { municipalityId: mun, status: true },
+                  0,
+                  mun ? 500 : 1500
+                )
+              )
+            )
             .pipe(
               map((page) =>
                 [...page.content].sort((a, b) => a.section.localeCompare(b.section))
@@ -233,7 +246,7 @@ export default class SupporterCapture {
   }
 
   protected levelLabel(t: CaptureTarget): string {
-    return LEVEL_NAMES[t.level]?.one ?? t.level;
+    return this.levelCatalog.name(t.level) || t.level;
   }
 
   protected pickTarget(t: CaptureTarget | null): void {

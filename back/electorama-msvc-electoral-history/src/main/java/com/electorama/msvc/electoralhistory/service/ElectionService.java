@@ -55,21 +55,21 @@ public class ElectionService {
 
   private final HistoryQueryRepository history;
 
-  public List<ElectionSummary> elections() {
-    return history.elections();
+  public List<ElectionSummary> elections(int state) {
+    return history.elections(state);
   }
 
   public TerritoryReport byTerritory(
-      int year, String office, TerritoryLevel level, String groupBy) {
-    ElectionSummary election = election(year, office, groupBy);
+      int state, int year, String office, TerritoryLevel level, String groupBy) {
+    ElectionSummary election = election(state, year, office, groupBy);
 
-    List<TurnoutRow> turnout = history.turnoutByTerritory(election.id(), level);
-    Map<Integer, String> names = history.territoryNames(election.id(), level);
+    List<TurnoutRow> turnout = history.turnoutByTerritory(election.id(), state, level);
+    Map<Integer, String> names = history.territoryNames(election.id(), state, level);
     Map<Integer, List<GroupRow>> groups =
-        history.groupsByTerritory(election.id(), level, groupBy).stream()
+        history.groupsByTerritory(election.id(), state, level, groupBy).stream()
             .collect(Collectors.groupingBy(GroupRow::territory));
-    Map<String, GroupMeta> meta = history.groupMeta(election.id(), year, groupBy);
-    Candidates candidates = candidates(election, level, groupBy);
+    Map<String, GroupMeta> meta = history.groupMeta(election.id(), state, year, groupBy);
+    Candidates candidates = candidates(election, state, level, groupBy);
 
     List<TerritoryResult> territories = new ArrayList<>();
     for (TurnoutRow row : turnout) {
@@ -82,34 +82,36 @@ public class ElectionService {
         territories.add(candidates.name(t, String.valueOf(row.code())));
       }
     }
-    TerritoryResult state =
+    TerritoryResult total =
         result(
-            sum(turnout, "TABASCO"), groups.values().stream().flatMap(List::stream).toList(), meta);
+            sum(turnout, history.stateName(state)),
+            groups.values().stream().flatMap(List::stream).toList(),
+            meta);
 
     return new TerritoryReport(
         election,
         groupBy,
         level,
         candidates.available(),
-        candidates.name(state, null),
+        candidates.name(total, null),
         territories);
   }
 
   public SectionReport bySection(
-      int year, String office, TerritoryLevel level, int territory, String groupBy) {
-    ElectionSummary election = election(year, office, groupBy);
+      int state, int year, String office, TerritoryLevel level, int territory, String groupBy) {
+    ElectionSummary election = election(state, year, office, groupBy);
 
-    List<TurnoutRow> turnout = history.turnoutBySection(election.id(), level, territory);
+    List<TurnoutRow> turnout = history.turnoutBySection(election.id(), state, level, territory);
     if (turnout.isEmpty()) {
       throw ElectoralHistoryException.notFound("el territorio", territory);
     }
-    List<GroupRow> rows = history.groupsBySection(election.id(), level, territory, groupBy);
+    List<GroupRow> rows = history.groupsBySection(election.id(), state, level, territory, groupBy);
     Map<Integer, List<GroupRow>> groups =
         rows.stream().collect(Collectors.groupingBy(GroupRow::territory));
-    Map<String, GroupMeta> meta = history.groupMeta(election.id(), year, groupBy);
+    Map<String, GroupMeta> meta = history.groupMeta(election.id(), state, year, groupBy);
     String name =
         history
-            .territoryNames(election.id(), level)
+            .territoryNames(election.id(), state, level)
             .getOrDefault(territory, String.valueOf(territory));
 
     List<TerritoryResult> sections =
@@ -117,7 +119,7 @@ public class ElectionService {
             .map(row -> result(row, groups.getOrDefault(row.code(), List.of()), meta))
             .toList();
     TerritoryResult total =
-        candidates(election, level, groupBy)
+        candidates(election, state, level, groupBy)
             .name(result(sum(turnout, name), rows, meta), String.valueOf(territory));
     return new SectionReport(election, groupBy, level, total, sections);
   }
@@ -127,15 +129,15 @@ public class ElectionService {
    * con la estructura de campaña, que vive en otro servicio y se junta por número de sección. Sin
    * el municipio 0 (voto anticipado, en prisión y en el extranjero).
    */
-  public List<SectionTotals> allSections(int year, String office) {
-    ElectionSummary election = election(year, office, "bloc");
+  public List<SectionTotals> allSections(int state, int year, String office) {
+    ElectionSummary election = election(state, year, office, "bloc");
     Map<Integer, Map<String, Long>> blocs = new HashMap<>();
-    for (GroupRow r : history.sectionGroups(election.id(), "bloc")) {
+    for (GroupRow r : history.sectionGroups(election.id(), state, "bloc")) {
       blocs
           .computeIfAbsent(r.territory(), k -> new LinkedHashMap<>())
           .merge(r.code(), r.votes(), Long::sum);
     }
-    return history.sectionTurnout(election.id()).stream()
+    return history.sectionTurnout(election.id(), state).stream()
         .map(
             s ->
                 new SectionTotals(
@@ -156,12 +158,12 @@ public class ElectionService {
    * Un cargo en todos sus años. Cada punto trae los grupos pedidos y, aparte, el ganador por
    * candidatura: comparar el bloque entre años sólo tiene sentido junto al resultado real.
    */
-  public TrendReport trend(String office, String groupBy, TerritoryLevel level) {
+  public TrendReport trend(int state, String office, String groupBy, TerritoryLevel level) {
     if (!GROUP_BY.contains(groupBy)) {
       throw ElectoralHistoryException.badRequest("groupBy debe ser uno de " + GROUP_BY);
     }
     List<ElectionSummary> elections =
-        history.elections().stream()
+        history.elections(state).stream()
             .filter(e -> e.office().equalsIgnoreCase(office))
             .sorted(Comparator.comparingInt(ElectionSummary::year))
             .toList();
@@ -171,17 +173,17 @@ public class ElectionService {
 
     Map<Integer, List<TrendPoint>> byTerritory = new LinkedHashMap<>();
     Map<Integer, String> names = new LinkedHashMap<>();
-    List<TrendPoint> state = new ArrayList<>();
+    List<TrendPoint> statewide = new ArrayList<>();
     for (ElectionSummary e : elections) {
-      TerritoryReport groups = byTerritory(e.year(), e.office(), level, groupBy);
+      TerritoryReport groups = byTerritory(state, e.year(), e.office(), level, groupBy);
       TerritoryReport real =
           groupBy.equals("candidacy")
               ? groups
-              : byTerritory(e.year(), e.office(), level, "candidacy");
+              : byTerritory(state, e.year(), e.office(), level, "candidacy");
       Map<Integer, TerritoryResult> winners =
           real.territories().stream().collect(Collectors.toMap(TerritoryResult::code, t -> t));
 
-      state.add(point(e.year(), groups.state(), real.state()));
+      statewide.add(point(e.year(), groups.state(), real.state()));
       for (TerritoryResult t : groups.territories()) {
         // el nombre del distrito lleva su cabecera: la del año más reciente
         names.put(t.code(), t.name());
@@ -201,7 +203,7 @@ public class ElectionService {
         groupBy,
         level,
         elections,
-        new TrendRow(0, "TABASCO", state),
+        new TrendRow(0, history.stateName(state), statewide),
         territories);
   }
 
@@ -221,29 +223,29 @@ public class ElectionService {
    * y margen. Las elecciones donde la sección no aparece (p.ej. distritos que no la incluyen) se
    * omiten.
    */
-  public SectionHistory sectionHistory(int section, String groupBy) {
+  public SectionHistory sectionHistory(int state, int section, String groupBy) {
     if (!GROUP_BY.contains(groupBy)) {
       throw ElectoralHistoryException.badRequest("groupBy debe ser uno de " + GROUP_BY);
     }
     Map<Integer, HistoryQueryRepository.SectionElectionTurnout> turnout =
-        history.sectionHistoryTurnout(section).stream()
+        history.sectionHistoryTurnout(state, section).stream()
             .collect(Collectors.toMap(t -> t.electionId(), t -> t));
     if (turnout.isEmpty()) {
       throw ElectoralHistoryException.notFound("la sección", section);
     }
     Map<Integer, List<HistoryQueryRepository.SectionElectionGroup>> groups =
-        history.sectionHistoryGroups(section, groupBy).stream()
+        history.sectionHistoryGroups(state, section, groupBy).stream()
             .collect(Collectors.groupingBy(g -> g.electionId()));
 
     List<SectionHistory.Election> out = new ArrayList<>();
     Integer municipality = null;
-    for (ElectionSummary e : history.elections()) {
+    for (ElectionSummary e : history.elections(state)) {
       HistoryQueryRepository.SectionElectionTurnout t = turnout.get(e.id());
       if (t == null) {
         continue;
       }
       municipality = t.municipality();
-      Map<String, GroupMeta> meta = history.groupMeta(e.id(), e.year(), groupBy);
+      Map<String, GroupMeta> meta = history.groupMeta(e.id(), state, e.year(), groupBy);
       long valid = t.totalVotes() - t.nullVotes() - t.nonRegisteredVotes();
       List<GroupVotes> votes =
           groups.getOrDefault(e.id(), List.of()).stream()
@@ -278,12 +280,12 @@ public class ElectionService {
     return new SectionHistory(section, municipality, out);
   }
 
-  private ElectionSummary election(int year, String office, String groupBy) {
+  private ElectionSummary election(int state, int year, String office, String groupBy) {
     if (!GROUP_BY.contains(groupBy)) {
       throw ElectoralHistoryException.badRequest("groupBy debe ser uno de " + GROUP_BY);
     }
     return history
-        .election(year, office.toUpperCase())
+        .election(year, office.toUpperCase(), state)
         .orElseThrow(() -> ElectoralHistoryException.notFound("la elección", year + " " + office));
   }
 
@@ -291,8 +293,9 @@ public class ElectionService {
    * Los nombres de las personas candidatas que se pueden mostrar en este reporte: sólo por
    * candidatura, y sólo si el nivel es el de la contienda o la contienda es estatal.
    */
-  private Candidates candidates(ElectionSummary election, TerritoryLevel level, String groupBy) {
-    List<CandidateRow> rows = history.candidates(election.id());
+  private Candidates candidates(
+      ElectionSummary election, int state, TerritoryLevel level, String groupBy) {
+    List<CandidateRow> rows = history.candidates(election.id(), state);
     boolean statewide = "STATE".equals(election.scope());
     boolean applies =
         "candidacy".equals(groupBy) && (statewide || level.matchesScope(election.scope()));

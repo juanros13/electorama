@@ -20,6 +20,8 @@ Qué deduce de los archivos del INE, y cómo:
 
 Uso (desde fuentes/):
   python ine_catalog.py <ruta a E2__elections_catalog.sql>
+  python ine_catalog.py national <salida.sql> 2024:PRESIDENT 2021:FEDERAL_DEPUTY ...
+      boleta y candidaturas de los 32 estados, para la base `electorama`
 
 Sólo biblioteca estándar. Revisar el diff de E2 antes de correrlo.
 """
@@ -166,7 +168,89 @@ def election_sql(year, office, z, inner, results, candidacies):
     return options, candidacies_out
 
 
+def national_sql(year, office, z, inner, results, candidacies):
+    """
+    Boleta y candidaturas de los 32 estados de una elección federal, como SQL
+    que se corre directo contra `electorama` (ver load-national.sh).
+
+    A diferencia de E2, la candidatura lleva el estado: en senado es estatal y
+    en diputaciones es del distrito DENTRO del estado. Los independientes de un
+    mismo distrito comparten la columna de votos (CI / CANDIDATO/A
+    INDEPENDIENTE), así que se juntan en una sola candidatura IND1.
+    """
+    lines = read(z, inner, results)
+    header = next(l for l in lines if l.startswith('CLAVE_CASILLA')).split('|')
+    last = header.index('CNR') if 'CNR' in header else header.index('CANDIDATO/A NO REGISTRADO/A')
+    options = []
+    for label in header[header.index('PAN'):last]:
+        if label in INDEPENDENT_COLUMNS:
+            options.append((label, 'INDEPENDENT', ['IND1'], 'Independiente'))
+        else:
+            codes = parties(label, year)
+            options.append((label, 'PARTY' if len(codes) == 1 else 'COMBINATION', codes, '-'.join(codes)))
+
+    rows = [l.split('|') for l in read(z, inner, candidacies)[2:] if l]
+    groups = defaultdict(lambda: OrderedDict())  # (estado, territorio) → persona → partidos
+    for r in rows:
+        if office == 'PRESIDENT':
+            key, label, person = (None, None), r[1], r[2]
+        else:
+            if office == 'SENATOR' and r[1] != '1':
+                continue  # el INE repite la fórmula estatal en cada distrito
+            territory = None if office == 'SENATOR' else str(int(r[1]))
+            key, label, person = (int(r[0]), territory), r[2], r[3]
+        if label.startswith('CI_'):
+            person, codes = 'Independiente', ['IND1']
+        else:
+            codes = parties(label, year)
+        groups[key].setdefault(person, set()).update(codes)
+
+    out = []
+    for (state, territory), people in groups.items():
+        for person, codes in people.items():
+            codes = sorted(codes, key=ORDER.index)
+            named = COALITION.get((year, frozenset(codes)))
+            if named:
+                code, name = named
+            elif len(codes) == 1:
+                code, name = codes[0], 'Independiente' if codes[0].startswith('IND') else codes[0]
+            else:
+                code, name = '_'.join(codes), '-'.join(codes)
+            label = name if person == 'Independiente' else f'{name} ({title(person)})'
+            out.append((state, territory, code, label, codes))
+
+    election = f"(SELECT id FROM electoral_history.election WHERE year = {year} AND office = {q(office)} AND state_id IS NULL)"
+    sql = [f'-- {office} {year}',
+           'INSERT INTO electoral_history.ballot_option (election_id, raw_label, kind, party_codes, label) VALUES']
+    sql.append(',\n'.join(f'  ({election}, {q(l)}, {q(k)}, {arr(c)}, {q(t)})' for l, k, c, t in options))
+    sql.append('ON CONFLICT (election_id, raw_label) DO NOTHING;')
+    sql.append(f'DELETE FROM electoral_history.candidacy WHERE election_id = {election};')
+    sql.append('INSERT INTO electoral_history.candidacy (election_id, state_id, territory, code, name, party_codes) VALUES')
+    sql.append(',\n'.join(
+        f"  ({election}, {'NULL' if s is None else s}, {'NULL' if t is None else q(t)}, {q(code)}, {q(name)}, {arr(c)})"
+        for s, t, code, name, c in out))
+    sql.append(';')
+    return '\n'.join(sql), len(out)
+
+
+def national(year_offices, out_path):
+    with open(out_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write('-- generado por tools/normalize/ine_catalog.py national: no editar a mano\n'
+                '\\set ON_ERROR_STOP on\nBEGIN;\n\n')
+        for year, office, *files in ELECTIONS:
+            if (year, office) in year_offices:
+                sql, n = national_sql(year, office, *files)
+                f.write(sql + '\n\n')
+                print(f'{office} {year}: {n} candidaturas')
+        f.write('COMMIT;\n')
+
+
 def main():
+    if sys.argv[1] == 'national':
+        # python ine_catalog.py national <salida.sql> 2024:PRESIDENT 2021:FEDERAL_DEPUTY ...
+        pairs = {(int(a.split(':')[0]), a.split(':')[1]) for a in sys.argv[3:]}
+        national(pairs, sys.argv[2])
+        return
     e2_path = sys.argv[1]
     option_rows, candidacy_rows = [], []
     for year, office, *files in ELECTIONS:

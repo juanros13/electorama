@@ -40,8 +40,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/v2/accounts")
 @RequiredArgsConstructor
-@PreAuthorize(
-    "hasAnyRole('ADMIN', 'CORDINATOR_MUNICIPAL', 'CORDINATOR_MUNICIPAL_ALT', 'CORDINATOR_ZONE', 'CORDINATOR_ZONE_ALT', 'PROMOTER')")
+// los roles de estructura ya no son fijos (V3): AccountAccess decide por su antigüedad
+@PreAuthorize("isAuthenticated()")
 public class AccountController {
 
   private final AccountService accounts;

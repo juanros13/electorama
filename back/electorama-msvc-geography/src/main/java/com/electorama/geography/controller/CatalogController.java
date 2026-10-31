@@ -5,6 +5,7 @@ import com.electorama.geography.model.dto.catalog.CatalogMunicipality;
 import com.electorama.geography.model.dto.catalog.CatalogPage;
 import com.electorama.geography.model.dto.catalog.CatalogSection;
 import com.electorama.geography.model.dto.catalog.CatalogSummary;
+import com.electorama.geography.model.dto.catalog.GoalUpdateRequest;
 import com.electorama.geography.model.dto.catalog.MunicipalityUpdateRequest;
 import com.electorama.geography.model.dto.catalog.SectionUpdateRequest;
 import com.electorama.geography.model.repository.CatalogQueryRepository.SectionChange;
@@ -112,6 +113,12 @@ public class CatalogController {
     return catalogService.updateSection(
         new SectionChange(
             id, request.meta(), request.nominalList(), request.goalPercentage(), request.status()));
+  }
+
+  /** El % de meta de una campaña: lo aplica a todas las secciones de su estado o municipio. */
+  @PatchMapping("/goal")
+  public CatalogSummary applyGoal(@Valid @RequestBody GoalUpdateRequest request) {
+    return catalogService.applyGoalPercentage(request);
   }
 
   @GetMapping("/municipalities")

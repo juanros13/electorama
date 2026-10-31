@@ -3,6 +3,7 @@ package com.electorama.msvc.structure.model.entity;
 import com.electorama.msvc.structure.model.enums.CampaignStatus;
 import com.electorama.msvc.structure.model.enums.CampaignType;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
@@ -47,6 +48,19 @@ public class Campaign {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private CampaignStatus status;
+
+  /** Inicio y cierre de la campaña (V3); el día de la elección va aparte. */
+  @Column(name = "start_date")
+  private LocalDate startDate;
+
+  @Column(name = "end_date")
+  private LocalDate endDate;
+
+  private String description;
+
+  /** % de la LN que es meta en cada sección (V6); se aplica a geography desde la configuración. */
+  @Column(name = "goal_percentage", nullable = false)
+  private BigDecimal goalPercentage;
 
   @Column(name = "valid_from", insertable = false, updatable = false)
   private OffsetDateTime validFrom;

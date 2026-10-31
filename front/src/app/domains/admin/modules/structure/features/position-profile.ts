@@ -244,7 +244,7 @@ export class PositionProfile {
   }
 
   protected levelLabel(): string {
-    return LEVEL_NAMES[this.position().level]?.one ?? this.position().level;
+    return this.position().levelName;
   }
 
   protected generate(): void {

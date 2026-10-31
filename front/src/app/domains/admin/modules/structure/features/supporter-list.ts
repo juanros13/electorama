@@ -1,4 +1,4 @@
-import { LEVEL_NAMES } from '@/app/core/data/levels';
+import { LevelCatalog } from '@/app/core/data/level-catalog';
 import { PageHeader } from '@/app/shared/ui/page-header';
 import { StatCard } from '@/app/shared/ui/stat-card';
 import { showError } from '@/app/shared/ui/swal';
@@ -43,6 +43,8 @@ type YesNoAll = 'all' | 'yes' | 'no';
 })
 export default class SupporterList {
   private api = inject(CaptureService);
+  /** Los nombres de nivel de la campaña activa (V3). */
+  private levelCatalog = inject(LevelCatalog);
   private destroyRef = inject(DestroyRef);
 
   // ─────────────────────────── de qué puesto
@@ -96,6 +98,7 @@ export default class SupporterList {
   });
 
   constructor() {
+    this.levelCatalog.load();
     this.api
       .getTargets()
       .pipe(
@@ -142,7 +145,7 @@ export default class SupporterList {
   }
 
   protected levelLabel(t: CaptureTarget): string {
-    return LEVEL_NAMES[t.level]?.one ?? t.level;
+    return this.levelCatalog.name(t.level) || t.level;
   }
 
   /** Cualquier filtro nuevo regresa a la primera página. */

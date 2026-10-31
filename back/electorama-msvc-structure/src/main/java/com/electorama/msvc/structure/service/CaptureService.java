@@ -97,7 +97,8 @@ public class CaptureService {
             .addValue("internalNumber", upper(r.internalNumber()))
             .addValue("neighborhood", upper(r.neighborhood()))
             .addValue("zipCode", blankToNull(r.zipCode()))
-            .addValue("ineValidity", supports ? r.ineValidity() : null);
+            .addValue("ineValidity", supports ? r.ineValidity() : null)
+            .addValue("territory", territory);
 
     Optional<Long> existing =
         curp == null || !supports ? Optional.empty() : capture.personByCurp(curp);

@@ -24,6 +24,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { catchError, of } from 'rxjs';
 import { ElectoralAnalysis } from './electoral-analysis';
 import { ElectoralHistoryService } from '../data/electoral-history.service';
+import { StateSelect } from '../ui/state-select';
 import {
   ElectionSummary,
   GroupBy,
@@ -95,6 +96,7 @@ const DEFAULT_FOCUS = 'MORENA_ALLIES';
     NgTemplateOutlet,
     PageHeader,
     StatCard,
+    StateSelect,
     TableShell,
   ],
 })
@@ -152,6 +154,13 @@ export default class ElectoralHistoryDashboard {
     { view: 'compare', label: 'Comparar años', icon: 'chart-line' },
     { view: 'analysis', label: 'Análisis 2024', icon: 'lightbulb' },
   ] as const;
+  /** El análisis es de ayuntamientos y diputaciones locales: sólo donde se cargaron. */
+  protected visibleTabs = computed(() => {
+    const offices = new Set(this.elections().map((e) => e.office));
+    const local = offices.has('MAYOR') && offices.has('LOCAL_DEPUTY');
+    return this.tabs.filter((t) => t.view !== 'analysis' || local);
+  });
+  protected stateName = this.service.stateName;
   protected view = signal<View>('election');
   protected compare = computed(() => this.view() === 'compare');
   protected trend = signal<TrendReport | null>(null);
@@ -212,7 +221,9 @@ export default class ElectoralHistoryDashboard {
       return null;
     }
     const color = this.focusOptions().find((g) => g.code === this.focus())?.color ?? NEUTRAL;
-    const series = [{ name: 'Tabasco', data: trend.state.points.map((p) => this.focusPct(p)) }];
+    const series = [
+      { name: this.stateName(), data: trend.state.points.map((p) => this.focusPct(p)) },
+    ];
     const colors = [color];
     const chosen = trend.territories.find((m) => m.code === this.trendMunicipality());
     if (chosen) {
@@ -348,6 +359,22 @@ export default class ElectoralHistoryDashboard {
   });
 
   constructor() {
+    this.loadElections();
+  }
+
+  /** Otro estado: otras elecciones (las locales cambian) y todo se vuelve a pedir. */
+  protected changeState(): void {
+    this.report.set(null);
+    this.trend.set(null);
+    this.trendMunicipality.set(null);
+    if (this.view() === 'analysis') {
+      this.view.set('election');
+    }
+    this.loadElections();
+  }
+
+  private loadElections(): void {
+    this.loading.set(true);
     this.service
       .getElections()
       .pipe(
@@ -355,6 +382,7 @@ export default class ElectoralHistoryDashboard {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((elections) => {
+        this.elections.set(elections ?? []);
         if (!elections?.length) {
           this.loading.set(false);
           if (!elections) {
@@ -362,12 +390,17 @@ export default class ElectoralHistoryDashboard {
           }
           return;
         }
-        this.elections.set(elections);
-        // arranca con la elección más reciente del primer cargo con datos
-        const office = this.offices()[0].value;
-        this.office.set(office);
-        this.year.set(this.years()[0]);
+        // se queda con el cargo y el año elegidos si el estado los tiene; si no,
+        // la elección más reciente del primer cargo con datos
+        const office = this.offices().find((o) => o.value === this.office())?.value;
+        this.office.set(office ?? this.offices()[0].value);
+        if (!this.years().includes(this.year() ?? -1)) {
+          this.year.set(this.years()[0]);
+        }
         this.load();
+        if (this.compare()) {
+          this.loadTrend();
+        }
       });
   }
 

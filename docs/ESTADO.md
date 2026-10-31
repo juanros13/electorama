@@ -1,5 +1,10 @@
 # Estado del proyecto
 
+> **30-oct-2026 (tarde) — entorno local y datos nacionales.** Base `electorama` en el PG 13 local con
+> V0–V6, geografía y LN de los 32 estados, historial federal 2021/2024 de todo el país, campañas en
+> cualquier estado con % de meta. Keycloak remoto. Ver [`LOCAL.md`](LOCAL.md). Falta: locales de CDMX y
+> Veracruz (IECM, OPLE), credenciales de Keycloak en `.env` y probar el flujo completo en el front.
+
 > **30-oct-2026 — migración a electorama.** Los tres repos se unieron en este monorepo (`back/`,
 > `front/`, `app/`) con una base de datos nueva y renombrado completo. Ver
 > [`MIGRACION.md`](MIGRACION.md). Lo de abajo es el estado previo (corte 27-sep-2026), con los

@@ -14,6 +14,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { CaptureService, CaptureTarget } from '../../structure/data/capture.service';
 import { TerritoryService } from '../../structure/data/territory.service';
+import { WorkingCampaign } from '../../structure/data/working-campaign';
 import { ElectoralHistoryService } from '../data/electoral-history.service';
 import {
   GroupBy,
@@ -22,8 +23,6 @@ import {
   SectionElection,
   SectionHistory,
 } from '../data/electoral-history.types';
-
-const STATE_ID = 27;
 
 const OFFICE_LABEL: Record<Office, string> = {
   PRESIDENT: 'Presidencia',
@@ -76,6 +75,8 @@ export default class SectionHistoryView {
   private capture = inject(CaptureService);
   private territory = inject(TerritoryService);
   private destroyRef = inject(DestroyRef);
+  /** Las secciones son del estado de la campaña con la que se trabaja. */
+  private working = inject(WorkingCampaign);
 
   protected readonly officeLabel = OFFICE_LABEL;
 
@@ -152,9 +153,10 @@ export default class SectionHistoryView {
 
   constructor() {
     // las secciones: las de sus puestos; si ninguno es de sección (referente), las de su municipio
-    this.capture
-      .getTargets()
+    this.working
+      .load()
       .pipe(
+        switchMap(() => this.capture.getTargets()),
         switchMap((targets) => {
           const own = sectionOptions(targets);
           if (own.length) {
@@ -164,7 +166,7 @@ export default class SectionHistoryView {
           if (!mun) {
             return of([] as SectionOption[]);
           }
-          return this.territory.getSections(STATE_ID, { municipalityId: mun, status: true }, 0, 500).pipe(
+          return this.territory.getSections(this.working.stateId(), { municipalityId: mun, status: true }, 0, 500).pipe(
             map((page) =>
               page.content
                 .map((s) => ({ section: +s.section, hint: 'de tu municipio' }))
@@ -189,7 +191,7 @@ export default class SectionHistoryView {
           }
           this.loading.set(true);
           this.error.set('');
-          return this.api.getSectionHistory(s, g).pipe(
+          return this.api.getSectionHistory(s, g, this.working.stateId()).pipe(
             catchError((e) => {
               this.error.set(
                 e?.status === 404

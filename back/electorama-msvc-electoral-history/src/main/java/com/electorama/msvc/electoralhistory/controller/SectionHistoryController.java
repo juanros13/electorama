@@ -28,10 +28,13 @@ public class SectionHistoryController {
   /**
    * @param section número de sección (único en el estado)
    * @param groupBy bloc (bloque del año, por omisión), candidacy o party
+   * @param stateId el estado de la sección (clave INE)
    */
   @GetMapping("/{section}/history")
   public SectionHistory history(
-      @PathVariable int section, @RequestParam(defaultValue = "bloc") String groupBy) {
-    return elections.sectionHistory(section, groupBy);
+      @PathVariable int section,
+      @RequestParam(defaultValue = "bloc") String groupBy,
+      @RequestParam(defaultValue = "27") int stateId) {
+    return elections.sectionHistory(stateId, section, groupBy);
   }
 }

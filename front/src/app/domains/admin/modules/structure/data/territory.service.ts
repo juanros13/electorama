@@ -83,6 +83,22 @@ export class TerritoryService {
     );
   }
 
+  /**
+   * El % de meta de una campaña a todas las secciones vigentes de su estado (o
+   * de un municipio); devuelve los totales ya recalculados.
+   */
+  applyGoal(
+    stateId: number,
+    goalPercentage: number,
+    municipalityId: number | null = null
+  ): Observable<CatalogSummary> {
+    return this.http.patch<CatalogSummary>(`${this.base}/catalog/goal`, {
+      stateId,
+      municipalityId,
+      goalPercentage,
+    });
+  }
+
   getMunicipalities(stateId: number): Observable<CatalogMunicipality[]> {
     return this.http.get<CatalogMunicipality[]>(
       `${this.base}/catalog/municipalities`,

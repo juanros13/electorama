@@ -21,6 +21,11 @@ public final class BuildRequests {
    *
    * @param goal si no viene: referente = la meta que mande el front, promotor 200, movilizador 20
    */
+  /**
+   * Crear un puesto. El nivel va por {@code levelId} (V3) o, como antes, por su función {@code
+   * level}. El territorio va por {@code territoryId} o por el municipio/sección del catálogo de
+   * geography; si no viene, lo decide el nivel (el estado de la campaña o el del padre).
+   */
   public record CreatePosition(
       Long structureId,
       Level level,
@@ -28,7 +33,9 @@ public final class BuildRequests {
       Integer sectionGeoId,
       Integer municipalityGeoId,
       Integer goal,
-      Integer childLimit) {}
+      Integer childLimit,
+      Long levelId,
+      Long territoryId) {}
 
   /**
    * Generar las vacantes que pide la meta debajo de un puesto.

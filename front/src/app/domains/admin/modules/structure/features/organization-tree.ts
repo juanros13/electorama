@@ -1,5 +1,4 @@
 import { AccessService } from '@/app/core/access/access.service';
-import { LEVEL_NAMES } from '@/app/core/data/levels';
 import { PageHeader } from '@/app/shared/ui/page-header';
 import { SectionCard } from '@/app/shared/ui/section-card';
 import { StatCard } from '@/app/shared/ui/stat-card';
@@ -24,9 +23,11 @@ import { AccountService } from '../data/account.service';
 import { OrganizationService } from '../data/organization.service';
 import { TerritoryService } from '../data/territory.service';
 import { CatalogMunicipality } from '../data/territory.types';
+import { WorkingCampaign } from '../data/working-campaign';
 import { PositionActions, StructureChange } from './position-actions';
 import { PositionProfile } from './position-profile';
 import {
+  CampaignLevel,
   CampaignSummary,
   AssignmentHistory,
   PositionLevel,
@@ -39,8 +40,6 @@ interface Rollup {
   total: number;
   complete: boolean;
 }
-
-const STATE_ID = 27;
 
 const TERRITORY_LABEL: Record<string, string> = {
   STATE: 'Estado',
@@ -108,6 +107,7 @@ export default class OrganizationTree {
   private access = inject(AccessService);
   private accounts = inject(AccountService);
   private destroyRef = inject(DestroyRef);
+  private working = inject(WorkingCampaign);
 
   /**
    * Las campañas: la activa (2027) se opera; una cerrada (2024) sólo se
@@ -117,6 +117,15 @@ export default class OrganizationTree {
   protected campaigns = signal<CampaignSummary[]>([]);
   protected campaign = signal<CampaignSummary | null>(null);
   protected structures = computed(() => this.campaign()?.structures ?? []);
+  /** Los niveles de la campaña (V3), de la cúspide hacia abajo. */
+  protected levels = computed(() => this.campaign()?.levels ?? []);
+  /** El nivel de la cúspide: el de los puestos raíz que se crean aquí. */
+  protected topLevel = computed<CampaignLevel | null>(() => this.levels()[0] ?? null);
+  /** Si la raíz va sobre un municipio (hay que elegirlo) o sobre el estado de la campaña. */
+  protected topOnMunicipality = computed(() => {
+    const top = this.topLevel();
+    return !!top && (top.territoryType === 'MUNICIPALITY' || (top.territoryType == null && top.function === 'REFERENT'));
+  });
   protected structureId = signal<number | null>(null);
   protected readOnly = computed(() => this.campaign()?.status === 'CLOSED');
   /**
@@ -232,18 +241,10 @@ export default class OrganizationTree {
   });
 
   constructor() {
-    this.territory
-      .getMunicipalities(27)
+    this.working
+      .load()
       .pipe(
-        catchError(() => of([] as CatalogMunicipality[])),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((m) =>
-        this.municipalities.set([...(m ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')))
-      );
-    this.service
-      .getCampaigns()
-      .pipe(
+        switchMap(() => this.service.getCampaigns()),
         catchError(() => {
           showError('No se pudieron leer las campañas');
           return of([] as CampaignSummary[]);
@@ -252,14 +253,34 @@ export default class OrganizationTree {
       )
       .subscribe((campaigns) => {
         this.campaigns.set(campaigns);
+        const chosen = campaigns.find((c) => c.id === this.working.campaign()?.id);
         const active = campaigns.find((c) => c.status === 'ACTIVE') ?? campaigns[0] ?? null;
-        this.changeCampaign(active);
+        this.changeCampaign(chosen ?? active);
       });
+  }
+
+  /** Los municipios del estado de la campaña, para nombrar los de cada puesto. */
+  private loadMunicipalities(): void {
+    this.territory
+      .getMunicipalities(this.working.stateId())
+      .pipe(
+        catchError(() => of([] as CatalogMunicipality[])),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((m) =>
+        this.municipalities.set([...(m ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')))
+      );
   }
 
   /** Otra campaña: su estructura principal, desde la raíz. */
   changeCampaign(campaign: CampaignSummary | null): void {
+    const otherState = campaign?.stateGeoId !== this.campaign()?.stateGeoId || !this.municipalities().length;
     this.campaign.set(campaign);
+    this.working.select(campaign);
+    if (otherState) {
+      this.requestedMunicipalities.clear();
+      this.loadMunicipalities();
+    }
     this.structureId.set(null);
     const main = campaign?.structures.find((s) => s.type === 'MAIN') ?? campaign?.structures[0];
     if (main) {
@@ -269,8 +290,21 @@ export default class OrganizationTree {
     }
   }
 
-  protected levelLabel(level: PositionLevel): string {
-    return LEVEL_NAMES[level]?.one ?? level;
+  /**
+   * La forma con la que se reconoce cada nivel en el árbol: la de su función
+   * (cuadro, cuadro hueco, punto) o un rombo para los niveles sin función.
+   */
+  protected levelShape(fn: PositionLevel | null | undefined): string {
+    switch (fn) {
+      case 'REFERENT':
+        return 'size-2.5 rounded-sm bg-primary-600';
+      case 'ZONE_COORDINATOR':
+        return 'size-2.5 rounded-sm border-2 border-secondary-600';
+      case 'PROMOTER':
+        return 'size-1.5 rounded-full bg-neutral-400';
+      default:
+        return 'size-2 rotate-45 bg-amber-500';
+    }
   }
 
   protected territoryLabel(type: string): string {
@@ -323,7 +357,7 @@ export default class OrganizationTree {
     for (const mun of pending) {
       this.requestedMunicipalities.add(mun);
       this.territory
-        .getSections(STATE_ID, { municipalityId: mun }, 0, 500)
+        .getSections(this.working.stateId(), { municipalityId: mun }, 0, 500)
         .pipe(
           // sin catálogo la fila sólo no muestra la meta; se reintenta al volver a la pantalla
           catchError(() => {
@@ -565,16 +599,17 @@ export default class OrganizationTree {
   protected createReferent(): void {
     const municipality = this.newReferentMunicipality();
     const structureId = this.structureId();
-    if (municipality == null || structureId == null) {
+    const top = this.topLevel();
+    if (structureId == null || !top || (this.topOnMunicipality() && municipality == null)) {
       return;
     }
     this.creatingReferent.set(true);
     this.service
       .createPosition({
         structureId,
-        level: 'REFERENT',
-        municipalityGeoId: municipality,
-        goal: this.newReferentGoal(),
+        levelId: top.id,
+        municipalityGeoId: this.topOnMunicipality() ? (municipality ?? undefined) : undefined,
+        goal: this.newReferentGoal() ?? top.defaultGoal,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -586,7 +621,7 @@ export default class OrganizationTree {
         },
         error: (e) => {
           this.creatingReferent.set(false);
-          showError('No se pudo crear el coordinador', e?.error?.message ?? 'Intenta de nuevo');
+          showError(`No se pudo crear el ${this.topLevel()?.nameSingular.toLowerCase() ?? 'puesto'}`, e?.error?.message ?? 'Intenta de nuevo');
         },
       });
   }

@@ -1,9 +1,11 @@
 <div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
   <app-page-header
-    eyebrow="Tabasco · cómputos oficiales"
+    [eyebrow]="stateName() + ' · cómputos oficiales'"
     title="Histórico electoral"
-    subtitle="Cómo votó cada municipio y distrito. Resultados por casilla del INE y del IEPCT, cuadrados contra los cómputos publicados."
-  />
+    subtitle="Cómo votó cada municipio y distrito. Resultados por casilla del INE y de los institutos locales, cuadrados contra los cómputos publicados."
+  >
+    <app-state-select actions (changed)="changeState()" />
+  </app-page-header>
 
   <!-- ──────────────────── pestañas: una elección / gráfica / comparar años / análisis ──────────────────── -->
   <div
@@ -11,7 +13,7 @@
     role="tablist"
     aria-label="Vista del histórico"
   >
-    @for (tab of tabs; track tab.view) {
+    @for (tab of visibleTabs(); track tab.view) {
       <button
         type="button"
         role="tab"

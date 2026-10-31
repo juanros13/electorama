@@ -1,9 +1,14 @@
 <div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
   <app-page-header
-    eyebrow="Tabasco · campaña 2027"
+    [eyebrow]="campaignLabel()"
     title="Tablero de campaña"
     subtitle="La tabla de «estructura estatal» por municipio, con el avance real de la estructura principal. Meta = lista nominal del INE × % de meta de cada sección."
-  />
+  >
+    <a actions matButton="outlined" routerLink="/admin/electoral-history/dashboard" (click)="openHistory()">
+      <mat-icon svgIcon="chart-line" />
+      Resultados anteriores
+    </a>
+  </app-page-header>
 
   <!-- ──────────────────── totales del estado ──────────────────── -->
   @let t = total();

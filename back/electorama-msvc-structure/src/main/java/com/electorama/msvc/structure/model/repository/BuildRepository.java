@@ -24,8 +24,9 @@ public class BuildRepository {
 
   private final NamedParameterJdbcTemplate jdbc;
 
-  /** Una estructura con el estado de su campaña y su tipo (MAIN/ALTERNATE). */
-  public record StructureRow(Long id, String type, String campaignStatus) {}
+  /** Una estructura con su campaña (estado y territorio) y su tipo (MAIN/ALTERNATE). */
+  public record StructureRow(
+      Long id, String type, String campaignStatus, Long campaignId, Long campaignTerritoryId) {}
 
   /** Un territorio vigente. */
   public record TerritoryRow(
@@ -41,15 +42,23 @@ public class BuildRepository {
       String territoryCode,
       Integer sectionGeoId,
       Integer municipalityGeoId,
-      Integer goal) {}
+      Integer goal,
+      Long levelId) {}
 
   public Optional<StructureRow> structure(Long structureId) {
     return jdbc
         .query(
-            "SELECT s.id, s.type, c.status FROM structure s JOIN campaign c ON c.id = s.campaign_id"
+            "SELECT s.id, s.type, c.status, c.id, c.territory_id"
+                + "  FROM structure s JOIN campaign c ON c.id = s.campaign_id"
                 + " WHERE s.id = :id",
             new MapSqlParameterSource("id", structureId),
-            (rs, i) -> new StructureRow(rs.getLong(1), rs.getString(2), rs.getString(3)))
+            (rs, i) ->
+                new StructureRow(
+                    rs.getLong(1),
+                    rs.getString(2),
+                    rs.getString(3),
+                    rs.getLong(4),
+                    (Long) rs.getObject(5)))
         .stream()
         .findFirst();
   }
@@ -62,7 +71,12 @@ public class BuildRepository {
     return territory("t.type = 'MUNICIPALITY' AND t.municipality_geo_id = :geo", municipalityGeoId);
   }
 
-  private Optional<TerritoryRow> territory(String where, Integer geoId) {
+  /** Un territorio vigente por su id en {@code territory}. */
+  public Optional<TerritoryRow> territoryById(Long territoryId) {
+    return territory("t.id = :geo", territoryId);
+  }
+
+  private Optional<TerritoryRow> territory(String where, Object geoId) {
     return jdbc
         .query(
             "SELECT t.id, t.type, t.code, t.section_geo_id,"
@@ -87,7 +101,7 @@ public class BuildRepository {
     return jdbc
         .query(
             "SELECT p.id, p.structure_id, p.level, t.id, t.type, t.code, t.section_geo_id,"
-                + "       coalesce(t.municipality_geo_id, tp.municipality_geo_id), p.goal"
+                + "       coalesce(t.municipality_geo_id, tp.municipality_geo_id), p.goal, p.level_id"
                 + "  FROM position p"
                 + "  JOIN territory t ON t.id = p.territory_id"
                 + "  LEFT JOIN territory tp ON tp.id = t.parent_territory_id"
@@ -103,26 +117,29 @@ public class BuildRepository {
                     rs.getString(6),
                     (Integer) rs.getObject(7),
                     (Integer) rs.getObject(8),
-                    (Integer) rs.getObject(9)))
+                    (Integer) rs.getObject(9),
+                    rs.getLong(10)))
         .stream()
         .findFirst();
   }
 
-  /** ¿Ya hay un referente vigente sobre ese municipio en esa estructura? */
-  public boolean hasReferent(Long structureId, Long territoryId) {
+  /** ¿Ya hay un puesto vigente de ese nivel sobre ese territorio en esa estructura? */
+  public boolean hasPositionOn(Long structureId, Long territoryId, Long levelId) {
     Integer n =
         jdbc.queryForObject(
             "SELECT count(*) FROM position WHERE structure_id = :s AND territory_id = :t"
-                + " AND level = 'REFERENT' AND valid_to IS NULL",
-            new MapSqlParameterSource("s", structureId).addValue("t", territoryId),
+                + " AND level_id = :l AND valid_to IS NULL",
+            new MapSqlParameterSource("s", structureId)
+                .addValue("t", territoryId)
+                .addValue("l", levelId),
             Integer.class);
     return n != null && n > 0;
   }
 
   /** Hijos vigentes de un puesto de cierto nivel, opcionalmente sólo en un territorio. */
-  public int countChildren(Long parentId, String level, Long territoryId) {
+  public int countChildren(Long parentId, Long levelId, Long territoryId) {
     MapSqlParameterSource params =
-        new MapSqlParameterSource("parent", parentId).addValue("level", level);
+        new MapSqlParameterSource("parent", parentId).addValue("level", levelId);
     String where = "";
     if (territoryId != null) {
       where = " AND territory_id = :t";
@@ -130,7 +147,7 @@ public class BuildRepository {
     }
     Integer n =
         jdbc.queryForObject(
-            "SELECT count(*) FROM position WHERE parent_position_id = :parent AND level = :level"
+            "SELECT count(*) FROM position WHERE parent_position_id = :parent AND level_id = :level"
                 + " AND valid_to IS NULL"
                 + where,
             params,
@@ -140,11 +157,12 @@ public class BuildRepository {
 
   /**
    * Inserta el puesto y devuelve su id. El código se arma con el id que da la secuencia en la misma
-   * sentencia: {@code <prefijo>|<código del territorio>|p<id>}.
+   * sentencia: {@code <prefijo>|<código del territorio>|p<id>}. La función ({@code level}) la copia
+   * el trigger desde el nivel.
    */
   public long insertPosition(
       Long structureId,
-      String level,
+      Long levelId,
       Long parentId,
       TerritoryRow territory,
       Integer goal,
@@ -153,14 +171,14 @@ public class BuildRepository {
     Long id =
         jdbc.queryForObject(
             "WITH n AS (SELECT nextval(pg_get_serial_sequence('position', 'id')) AS id)"
-                + " INSERT INTO position (id, structure_id, level, parent_position_id, territory_id,"
+                + " INSERT INTO position (id, structure_id, level_id, parent_position_id, territory_id,"
                 + "                       code, goal, child_limit)"
                 + " SELECT n.id, :structure, :level, :parent, :territory,"
                 + "        :prefix || '|' || :tcode || '|p' || n.id, :goal, :childLimit"
                 + "   FROM n"
                 + " RETURNING id",
             new MapSqlParameterSource("structure", structureId)
-                .addValue("level", level)
+                .addValue("level", levelId)
                 .addValue("parent", parentId)
                 .addValue("territory", territory.id())
                 .addValue("tcode", territory.code())

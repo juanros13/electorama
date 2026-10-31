@@ -17,12 +17,13 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>ADMIN: cualquiera.
- *   <li>Quien ocupa un puesto de la estructura: sólo cuentas de niveles DEBAJO del suyo (el
- *       referente, de promotor y movilizador; el promotor, de movilizador; el movilizador, de
- *       nadie), nunca ADMIN. Para verlas o cambiarles la contraseña, además, tienen que ser
- *       titulares de un puesto de su rama, según msvc-structure. Puede crear cuentas de esos roles
- *       (al nombrar en su rama; msvc-structure valida la rama antes de llamar) y borrar una recién
- *       creada (msvc-structure la borra si el nombramiento falla).
+ *   <li>Quien ocupa un puesto de la estructura: sólo cuentas de niveles DEBAJO del suyo, según la
+ *       antigüedad de cada rol ({@link StructureRoles}; en 2024/2027: el coordinador administra a
+ *       promotor y movilizador, el promotor al movilizador, el movilizador a nadie), nunca ADMIN.
+ *       Para verlas o cambiarles la contraseña, además, tienen que ser titulares de un puesto de su
+ *       rama, según msvc-structure. Puede crear cuentas de esos roles (al nombrar en su rama;
+ *       msvc-structure valida la rama antes de llamar) y borrar una recién creada (msvc-structure
+ *       la borra si el nombramiento falla).
  * </ul>
  *
  * <p>La revisión de roles de la cuenta destino va aunque msvc-structure diga que es de su rama: un
@@ -32,20 +33,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AccountAccess {
 
-  /** El nivel de cada rol de estructura: sólo se administra lo que queda debajo. */
-  static final Map<String, Integer> RANK =
-      Map.of(
-          "CORDINATOR_MUNICIPAL", 3,
-          "CORDINATOR_MUNICIPAL_ALT", 3,
-          "CORDINATOR_ZONE", 2,
-          "CORDINATOR_ZONE_ALT", 2,
-          "PROMOTER", 1);
-
   /** Cuánto dura una cuenta "recién creada" para poder deshacerla. */
   static final Duration UNDO_WINDOW = Duration.ofMinutes(10);
 
   private final KeycloakUserService keycloak;
   private final StructureBranchClient structure;
+
+  /** La antigüedad de cada rol de estructura: sólo se administra lo que queda debajo. */
+  private final StructureRoles structureRoles;
 
   public boolean isAdmin() {
     return hasRole("ADMIN");
@@ -57,7 +52,7 @@ public class AccountAccess {
       return;
     }
     int mine = requireStructureRank();
-    if (RANK.getOrDefault(role, Integer.MAX_VALUE) >= mine) {
+    if (structureRoles.seniority(role).orElse(Integer.MAX_VALUE) >= mine) {
       throw ApiException.forbidden("Sólo se administran cuentas de niveles debajo del tuyo");
     }
   }
@@ -90,8 +85,9 @@ public class AccountAccess {
 
   private void requireOnlyBelow(String targetAuthId, int mine) {
     List<String> roles = keycloak.realmRoles(targetAuthId);
+    Map<String, Integer> seniority = structureRoles.all();
     boolean protectedRole =
-        roles.stream().anyMatch(r -> "ADMIN".equals(r) || RANK.getOrDefault(r, 0) >= mine);
+        roles.stream().anyMatch(r -> "ADMIN".equals(r) || seniority.getOrDefault(r, 0) >= mine);
     if (protectedRole) {
       throw ApiException.forbidden("Esa cuenta la administra alguien de más arriba");
     }
@@ -99,8 +95,9 @@ public class AccountAccess {
 
   /** El nivel más alto de quien llama; 403 si no tiene rol de estructura. */
   private int requireStructureRank() {
+    Map<String, Integer> seniority = structureRoles.all();
     int mine =
-        RANK.entrySet().stream()
+        seniority.entrySet().stream()
             .filter(e -> hasRole(e.getKey()))
             .mapToInt(Map.Entry::getValue)
             .max()

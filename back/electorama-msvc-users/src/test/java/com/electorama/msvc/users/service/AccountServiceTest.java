@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 class AccountServiceTest {
 
   private KeycloakUserService keycloak;
+  private StructureRoles structureRoles;
   private AccountService accounts;
 
   private static final AccountRequest ANA =
@@ -29,7 +30,11 @@ class AccountServiceTest {
   @BeforeEach
   void setUp() {
     keycloak = mock(KeycloakUserService.class);
-    accounts = new AccountService(keycloak);
+    structureRoles = mock(StructureRoles.class);
+    // el registro de roles de estructura (V3): los heredados y los de niveles nuevos
+    when(structureRoles.isStructureRole("CORDINATOR_ZONE")).thenReturn(true);
+    when(structureRoles.isStructureRole("T30_COORD_DISTRITAL")).thenReturn(true);
+    accounts = new AccountService(keycloak, structureRoles);
   }
 
   @Test
@@ -72,6 +77,18 @@ class AccountServiceTest {
 
     assertThatThrownBy(() -> accounts.create(ANA)).isInstanceOf(ApiException.class);
     verify(keycloak).delete("id-ana");
+  }
+
+  @Test
+  void aceptaElRolDeUnNivelNuevoDeCampania() {
+    when(keycloak.findByUsername("ana@x.com")).thenReturn(Optional.empty());
+    when(keycloak.create(any())).thenReturn("id-ana");
+    AccountRequest distrital =
+        new AccountRequest("ana@x.com", "secreta123", "Ana", "López", "T30_COORD_DISTRITAL");
+
+    accounts.create(distrital);
+
+    verify(keycloak).addRealmRole("id-ana", "T30_COORD_DISTRITAL");
   }
 
   @Test

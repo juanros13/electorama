@@ -211,6 +211,24 @@ public class CatalogQueryRepository {
             .addValue("status", change.status()));
   }
 
+  /**
+   * El mismo % para todas las secciones vigentes del estado (o de un municipio), y su meta
+   * recalculada donde hay LN. Devuelve las secciones tocadas.
+   */
+  public int applyGoalPercentage(Integer stateId, Long municipalityId, BigDecimal goalPercentage) {
+    return jdbc.update(
+        "UPDATE geo_secciones"
+            + "   SET goal_percentage = :goalPercentage,"
+            + "       meta = CASE WHEN nominal_list IS NOT NULL"
+            + "                   THEN round(nominal_list * CAST(:goalPercentage AS numeric) / 100)"
+            + "                   ELSE meta END"
+            + " WHERE entidad_id = :stateId AND status"
+            + "   AND (CAST(:municipalityId AS bigint) IS NULL OR municipio_id = :municipalityId)",
+        new MapSqlParameterSource("stateId", stateId)
+            .addValue("municipalityId", municipalityId)
+            .addValue("goalPercentage", goalPercentage));
+  }
+
   /** Lo que se cambia de una sección; un campo en null no se toca. */
   public record SectionChange(
       Long id, Integer meta, Integer nominalList, BigDecimal goalPercentage, Boolean status) {}

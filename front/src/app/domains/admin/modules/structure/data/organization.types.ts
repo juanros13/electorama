@@ -7,7 +7,11 @@
  * historial existe.
  */
 
-/** Los tres niveles del organigrama. */
+/**
+ * Las tres funciones heredadas del organigrama. Desde V3 cada campaña define sus
+ * niveles (`CampaignLevel`); un nivel puede llevar una de estas funciones para
+ * conservar la lógica que depende de ella (claves de sección, captura, reportes).
+ */
 export type PositionLevel = 'REFERENT' | 'ZONE_COORDINATOR' | 'PROMOTER';
 
 /** Territorio del puesto. El organigrama y el territorio son árboles distintos. */
@@ -16,7 +20,12 @@ export type TerritoryType = 'STATE' | 'MUNICIPALITY' | 'SECTION' | 'FRAGMENT';
 /** Un puesto con su titular vigente y sus dos conteos. */
 export interface PositionSummary {
   id: number;
-  level: PositionLevel;
+  /** La función heredada del nivel; null en un nivel sin función. */
+  level: PositionLevel | null;
+  /** El nivel de su campaña: id, rango (1 = cúspide) y nombre en pantalla. */
+  levelId: number;
+  levelRank: number;
+  levelName: string;
   code: string | null;
   /** Clave legible por sección (V7): S-0233A1 el promotor, S-0233A1-01 el movilizador. */
   sectionKey: string | null;
@@ -115,24 +124,112 @@ export interface MunicipalityPosition {
  * Una campaña (msvc-structure, `/campaigns`). La ACTIVE es la que se opera
  * (2027); una CLOSED (2024) sólo se consulta: la base rechaza escribirla.
  */
+export type CampaignStatus = 'PLANNING' | 'ACTIVE' | 'CLOSED';
+export type CampaignType = 'FEDERAL' | 'STATE' | 'MUNICIPAL' | 'INTERNAL';
+export type StructureType = 'MAIN' | 'ALTERNATE' | 'ALLIED';
+
+/**
+ * Un nivel del organigrama de una campaña (V3). `positions` cuenta sus puestos:
+ * con alguno ya no cambian rango, territorio ni función.
+ */
+export interface CampaignLevel {
+  id: number;
+  rank: number;
+  code: string;
+  nameSingular: string;
+  namePlural: string;
+  /** Dónde va el puesto; null = donde diga quien lo crea. */
+  territoryType: TerritoryType | null;
+  /** Meta con la que nace cada puesto; también reparte las vacantes del nivel de arriba. */
+  defaultGoal: number | null;
+  defaultChildLimit: number | null;
+  function: PositionLevel | null;
+  roleName: string;
+  alternateRoleName: string | null;
+  positions: number;
+}
+
+export interface CampaignElection {
+  office: string;
+  scope: string;
+  seats: number;
+  electionDay: string;
+}
+
 export interface CampaignSummary {
   id: number;
   name: string;
-  type: string;
-  year: number;
+  type: CampaignType;
+  year: number | null;
   electionDay: string | null;
-  status: 'PLANNING' | 'ACTIVE' | 'CLOSED';
-  structures: { id: number; name: string; type: 'MAIN' | 'ALTERNATE' | 'ALLIED' }[];
+  status: CampaignStatus;
+  territoryId: number | null;
+  territoryName: string | null;
+  /** Clave INE del estado de su territorio (geography); null si no tiene territorio. */
+  stateGeoId: number | null;
+  /** El municipio de geography, si la campaña es municipal. */
+  municipalityGeoId: number | null;
+  /** % de la LN que es meta en cada sección. */
+  goalPercentage: number;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+  structures: { id: number; name: string; type: StructureType }[];
   /** Qué se elige: MAYOR ×17, LOCAL_DEPUTY ×21, FEDERAL_DEPUTY ×6. */
-  elections: { office: string; scope: string; seats: number; electionDay: string }[];
+  elections: CampaignElection[];
+  /** Los niveles del organigrama, de la cúspide hacia abajo. */
+  levels: CampaignLevel[];
+}
+
+// ─────────────────────────── configurar la campaña (msvc-structure, sólo ADMIN)
+
+export interface CampaignData {
+  name: string;
+  type: CampaignType;
+  year?: number | null;
+  electionDay?: string | null;
+  territoryId?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  description?: string | null;
+  /** % de la LN que es meta en cada sección; 61 si no se manda. */
+  goalPercentage?: number | null;
+}
+
+/** Un nivel a guardar; `id` null es uno nuevo y `roleName` null toma `<CAMPAÑA>_<CODIGO>`. */
+export interface LevelData {
+  id?: number | null;
+  code?: string | null;
+  nameSingular: string;
+  namePlural?: string | null;
+  territoryType?: TerritoryType | null;
+  defaultGoal?: number | null;
+  defaultChildLimit?: number | null;
+  function?: PositionLevel | null;
+  roleName?: string | null;
+  alternateRoleName?: string | null;
+}
+
+/** Estados y municipios que pueden ser el alcance de una campaña. */
+export interface TerritoryOption {
+  id: number;
+  type: 'STATE' | 'MUNICIPALITY';
+  code: string;
+  name: string;
+  parentId: number | null;
 }
 
 // ─────────────────────────── armar la estructura (msvc-structure, sólo ADMIN)
 
-/** Un puesto nuevo: referente sobre municipio, promotor sobre sección, movilizador bajo promotor. */
+/**
+ * Un puesto nuevo. El nivel va por `levelId` (V3) o por su función `level`; el
+ * territorio por `territoryId` o por municipio/sección del catálogo de geography.
+ */
 export interface CreatePositionRequest {
   structureId?: number;
-  level: PositionLevel;
+  level?: PositionLevel;
+  levelId?: number;
+  territoryId?: number;
   parentPositionId?: number;
   sectionGeoId?: number;
   municipalityGeoId?: number;

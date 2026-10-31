@@ -1,6 +1,6 @@
 <div class="flex min-w-0 flex-auto flex-col gap-6 p-6 sm:p-10">
   <app-page-header
-    eyebrow="Tabasco · marco INE 2026"
+    [eyebrow]="stateName() + ' · marco INE 2026'"
     title="Catálogo territorial"
     subtitle="Secciones, municipios y distritos. El techo de meta de cada sección es un % de su lista nominal 2027; la meta de cada promotor, en su puesto."
   />
@@ -614,7 +614,7 @@
                       </div>
                       <div class="text-2xs text-neutral-500">
                         {{
-                          levelName(p.level)
+                          p.levelName
                         }}
                         · {{ p.membershipCount | number }} convencidos
                       </div>

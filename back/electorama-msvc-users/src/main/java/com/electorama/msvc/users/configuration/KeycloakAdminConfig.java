@@ -16,9 +16,10 @@ import org.springframework.context.annotation.Configuration;
  * peticiones simultáneas al arrancar podían crear dos clientes. El {@link Keycloak} ya es seguro
  * entre hilos y renueva su token solo, así que basta un singleton de Spring.
  *
- * <p>Sigue entrando al realm {@code master} con usuario y contraseña de administrador. Lo correcto
- * es una cuenta de servicio (client credentials) con los roles de {@code realm-management}; eso se
- * configura en Keycloak y aquí sólo cambiaría el {@code grantType}.
+ * <p>Con secreto, entra como la cuenta de servicio de su cliente (client credentials) en el propio
+ * realm de la aplicación: el cliente necesita los roles {@code manage-users}, {@code view-users},
+ * {@code manage-realm} y {@code view-realm} de {@code realm-management}. Sin secreto, sigue como
+ * antes: usuario y contraseña de administrador del realm {@code master}.
  */
 @Configuration
 public class KeycloakAdminConfig {
@@ -26,17 +27,29 @@ public class KeycloakAdminConfig {
   @Bean(destroyMethod = "close")
   Keycloak keycloakAdmin(
       @Value("${app.config.keycloak.server-url}") String serverUrl,
+      @Value("${app.config.keycloak.realm}") String realm,
       @Value("${app.config.keycloak.clientId}") String clientId,
+      @Value("${app.config.keycloak.secret:}") String secret,
       @Value("${app.config.keycloak.user}") String user,
       @Value("${app.config.keycloak.pass}") String pass) {
-    return KeycloakBuilder.builder()
-        .serverUrl(serverUrl)
+    KeycloakBuilder builder =
+        KeycloakBuilder.builder()
+            .serverUrl(serverUrl)
+            .resteasyClient(new ResteasyClientBuilder().connectionPoolSize(10).build());
+    if (!secret.isBlank()) {
+      return builder
+          .realm(realm)
+          .clientId(clientId)
+          .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+          .clientSecret(secret)
+          .build();
+    }
+    return builder
         .realm("master")
+        .clientId("admin-cli")
         .grantType(OAuth2Constants.PASSWORD)
-        .clientId(clientId)
         .username(user)
         .password(pass)
-        .resteasyClient(new ResteasyClientBuilder().connectionPoolSize(10).build())
         .build();
   }
 

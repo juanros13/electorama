@@ -23,6 +23,10 @@ import org.springframework.stereotype.Repository;
  * anticipado, en prisión y en el extranjero) o las casillas sin distrito (el voto anticipado del
  * IEPCT viene sin sección y no tiene distrito federal). Sólo cuenta al estado.
  *
+ * <p>Todo es de UN estado ({@code state}, clave INE): una elección federal tiene casillas de los 32
+ * y una local sólo del suyo. Las candidaturas con {@code state_id} nulo son nacionales
+ * (presidencia).
+ *
  * <p>La columna de cada nivel sale de {@link TerritoryLevel#column()}, fija en el código: nunca se
  * arma SQL con texto del cliente.
  */
@@ -46,22 +50,46 @@ public class HistoryQueryRepository {
           + "       coalesce(sum(t.null_votes), 0) AS null_votes,"
           + "       coalesce(sum(t.non_registered_votes), 0) AS non_registered_votes";
 
-  public List<ElectionSummary> elections() {
-    return jdbc.query(ELECTION_SELECT + " ORDER BY e.year DESC, e.office", (rs, i) -> election(rs));
+  /** Las elecciones con casillas en el estado: las locales del estado y las federales. */
+  public List<ElectionSummary> elections(int state) {
+    return jdbc.query(
+        ELECTION_SELECT
+            + " WHERE e.state_id = :state"
+            + "    OR (e.state_id IS NULL AND EXISTS (SELECT 1 FROM polling_station p"
+            + "                                       WHERE p.election_id = e.id AND p.state_id = :state))"
+            + " ORDER BY e.year DESC, e.office",
+        new MapSqlParameterSource("state", state),
+        (rs, i) -> election(rs));
   }
 
-  public Optional<ElectionSummary> election(int year, String office) {
+  public Optional<ElectionSummary> election(int year, String office, int state) {
     return jdbc
         .query(
-            ELECTION_SELECT + " WHERE e.year = :year AND e.office = :office",
-            new MapSqlParameterSource("year", year).addValue("office", office),
+            ELECTION_SELECT
+                + " WHERE e.year = :year AND e.office = :office"
+                + "   AND coalesce(e.state_id, :state) = :state",
+            new MapSqlParameterSource("year", year)
+                .addValue("office", office)
+                .addValue("state", state),
             (rs, i) -> election(rs))
         .stream()
         .findFirst();
   }
 
+  /** El nombre del estado ("TABASCO"), para el total. */
+  public String stateName(int state) {
+    return jdbc
+        .query(
+            "SELECT name FROM state WHERE id = :state",
+            new MapSqlParameterSource("state", state),
+            (rs, i) -> rs.getString("name"))
+        .stream()
+        .findFirst()
+        .orElse(String.valueOf(state));
+  }
+
   /** Participación y votos por territorio del nivel, incluido el 0 (sólo cuenta al estado). */
-  public List<TurnoutRow> turnoutByTerritory(int electionId, TerritoryLevel level) {
+  public List<TurnoutRow> turnoutByTerritory(int electionId, int state, TerritoryLevel level) {
     String code = "coalesce(t." + level.column() + ", 0)";
     return jdbc.query(
         "SELECT "
@@ -69,9 +97,9 @@ public class HistoryQueryRepository {
             + " AS code,"
             + TURNOUT_SUMS
             + "  FROM mv_section_turnout t"
-            + " WHERE t.election_id = :election"
+            + " WHERE t.election_id = :election AND t.state_id = :state"
             + " GROUP BY 1 ORDER BY 1",
-        new MapSqlParameterSource("election", electionId),
+        new MapSqlParameterSource("election", electionId).addValue("state", state),
         (rs, i) -> turnout(rs, null));
   }
 
@@ -79,11 +107,12 @@ public class HistoryQueryRepository {
    * El nombre de cada territorio: el del municipio, o "DISTRITO LOCAL 04 · CENTRO" con la cabecera
    * como el municipio con más lista nominal dentro del distrito.
    */
-  public Map<Integer, String> territoryNames(int electionId, TerritoryLevel level) {
+  public Map<Integer, String> territoryNames(int electionId, int state, TerritoryLevel level) {
     if (level == TerritoryLevel.MUNICIPALITY) {
       return jdbc
           .query(
-              "SELECT cve, name FROM municipality",
+              "SELECT cve, name FROM municipality WHERE state_id = :state",
+              new MapSqlParameterSource("state", state),
               (rs, i) -> Map.entry(rs.getInt("cve"), rs.getString("name")))
           .stream()
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -96,8 +125,8 @@ public class HistoryQueryRepository {
                 + level.column()
                 + " AS code, m.name"
                 + "  FROM mv_section_turnout t"
-                + "  JOIN municipality m ON m.cve = t.municipality_cve"
-                + " WHERE t.election_id = :election AND t."
+                + "  JOIN municipality m ON m.state_id = t.state_id AND m.cve = t.municipality_cve"
+                + " WHERE t.election_id = :election AND t.state_id = :state AND t."
                 + level.column()
                 + " IS NOT NULL"
                 + " GROUP BY t."
@@ -106,7 +135,7 @@ public class HistoryQueryRepository {
                 + " ORDER BY t."
                 + level.column()
                 + ", sum(coalesce(t.nominal_list, 0)) DESC",
-            new MapSqlParameterSource("election", electionId),
+            new MapSqlParameterSource("election", electionId).addValue("state", state),
             (rs, i) ->
                 Map.entry(
                     rs.getInt("code"),
@@ -120,44 +149,51 @@ public class HistoryQueryRepository {
   }
 
   /** Votos por territorio del nivel en la agrupación pedida. */
-  public List<GroupRow> groupsByTerritory(int electionId, TerritoryLevel level, String groupBy) {
+  public List<GroupRow> groupsByTerritory(
+      int electionId, int state, TerritoryLevel level, String groupBy) {
     return jdbc.query(
         "SELECT coalesce(g."
             + level.column()
             + ", 0) AS territory, g.code, sum(g.votes) AS votes"
             + "  FROM mv_section_group g"
-            + " WHERE g.election_id = :election AND g.group_by = :groupBy"
+            + " WHERE g.election_id = :election AND g.state_id = :state AND g.group_by = :groupBy"
             + " GROUP BY 1, 2",
-        new MapSqlParameterSource("election", electionId).addValue("groupBy", groupBy),
+        new MapSqlParameterSource("election", electionId)
+            .addValue("state", state)
+            .addValue("groupBy", groupBy),
         (rs, i) -> new GroupRow(rs.getInt("territory"), rs.getString("code"), rs.getLong("votes")));
   }
 
   /** Participación y votos por sección de un territorio del nivel. */
-  public List<TurnoutRow> turnoutBySection(int electionId, TerritoryLevel level, int territory) {
+  public List<TurnoutRow> turnoutBySection(
+      int electionId, int state, TerritoryLevel level, int territory) {
     return jdbc.query(
         "SELECT t.section AS code,"
             + TURNOUT_SUMS
             + "  FROM mv_section_turnout t"
-            + " WHERE t.election_id = :election AND coalesce(t."
+            + " WHERE t.election_id = :election AND t.state_id = :state AND coalesce(t."
             + level.column()
             + ", 0) = :territory"
             + " GROUP BY t.section ORDER BY t.section",
-        new MapSqlParameterSource("election", electionId).addValue("territory", territory),
+        new MapSqlParameterSource("election", electionId)
+            .addValue("state", state)
+            .addValue("territory", territory),
         (rs, i) -> turnout(rs, "SECCIÓN " + String.format("%04d", rs.getInt("code"))));
   }
 
   /** Votos por sección de un territorio del nivel en la agrupación pedida. */
   public List<GroupRow> groupsBySection(
-      int electionId, TerritoryLevel level, int territory, String groupBy) {
+      int electionId, int state, TerritoryLevel level, int territory, String groupBy) {
     return jdbc.query(
         "SELECT g.section AS territory, g.code, sum(g.votes) AS votes"
             + "  FROM mv_section_group g"
-            + " WHERE g.election_id = :election AND coalesce(g."
+            + " WHERE g.election_id = :election AND g.state_id = :state AND coalesce(g."
             + level.column()
             + ", 0) = :territory"
             + "   AND g.group_by = :groupBy"
             + " GROUP BY 1, 2",
         new MapSqlParameterSource("election", electionId)
+            .addValue("state", state)
             .addValue("territory", territory)
             .addValue("groupBy", groupBy),
         (rs, i) -> new GroupRow(rs.getInt("territory"), rs.getString("code"), rs.getLong("votes")));
@@ -168,7 +204,7 @@ public class HistoryQueryRepository {
    * primer partido y se nombra SIN la persona ("MORENA", "Sigamos Haciendo Historia"): al sumar
    * varios territorios, la persona cambia; va aparte, en {@link #candidates}.
    */
-  public Map<String, GroupMeta> groupMeta(int electionId, int year, String groupBy) {
+  public Map<String, GroupMeta> groupMeta(int electionId, int state, int year, String groupBy) {
     String sql =
         switch (groupBy) {
           case "candidacy" -> "SELECT DISTINCT ON (c.code) c.code,"
@@ -177,6 +213,7 @@ public class HistoryQueryRepository {
               + "  LEFT JOIN bloc_party bp ON bp.year = :year AND bp.party_code = c.party_codes[1]"
               + "  LEFT JOIN bloc b ON b.code = bp.bloc_code"
               + " WHERE c.election_id = :election"
+              + "   AND (c.state_id IS NULL OR c.state_id = :state)"
               + " ORDER BY c.code, c.territory NULLS FIRST";
           case "party" -> "SELECT p.code, p.code AS label, p.color FROM party p";
           default -> "SELECT b.code, b.name AS label, b.color FROM bloc b";
@@ -184,7 +221,9 @@ public class HistoryQueryRepository {
     return jdbc
         .query(
             sql,
-            new MapSqlParameterSource("election", electionId).addValue("year", year),
+            new MapSqlParameterSource("election", electionId)
+                .addValue("state", state)
+                .addValue("year", year),
             (rs, i) ->
                 new GroupMeta(rs.getString("code"), rs.getString("label"), rs.getString("color")))
         .stream()
@@ -196,12 +235,13 @@ public class HistoryQueryRepository {
    * El nombre va entre paréntesis al final de {@code candidacy.name}; las candidaturas del IEPCT no
    * lo traen, salvo las independientes.
    */
-  public List<CandidateRow> candidates(int electionId) {
+  public List<CandidateRow> candidates(int electionId, int state) {
     return jdbc.query(
         "SELECT c.territory, c.code, substring(c.name from '\\(([^()]*)\\)\\s*$') AS person"
             + "  FROM candidacy c"
-            + " WHERE c.election_id = :election AND c.name ~ '\\([^()]*\\)\\s*$'",
-        new MapSqlParameterSource("election", electionId),
+            + " WHERE c.election_id = :election AND c.name ~ '\\([^()]*\\)\\s*$'"
+            + "   AND (c.state_id IS NULL OR c.state_id = :state)",
+        new MapSqlParameterSource("election", electionId).addValue("state", state),
         (rs, i) ->
             new CandidateRow(
                 rs.getString("territory"), rs.getString("code"), rs.getString("person")));
@@ -211,7 +251,7 @@ public class HistoryQueryRepository {
    * De cada candidatura: si lleva a MORENA y el bloque de su primer partido ese año (el mismo que
    * da su color en {@link #groupMeta}).
    */
-  public Map<String, CandidacyTraits> candidacyTraits(int electionId, int year) {
+  public Map<String, CandidacyTraits> candidacyTraits(int electionId, int state, int year) {
     return jdbc
         .query(
             "SELECT DISTINCT ON (c.code) c.code, 'MORENA' = ANY (c.party_codes) AS morena,"
@@ -219,8 +259,11 @@ public class HistoryQueryRepository {
                 + "  FROM candidacy c"
                 + "  LEFT JOIN bloc_party bp ON bp.year = :year AND bp.party_code = c.party_codes[1]"
                 + " WHERE c.election_id = :election"
+                + "   AND (c.state_id IS NULL OR c.state_id = :state)"
                 + " ORDER BY c.code",
-            new MapSqlParameterSource("election", electionId).addValue("year", year),
+            new MapSqlParameterSource("election", electionId)
+                .addValue("state", state)
+                .addValue("year", year),
             (rs, i) ->
                 new CandidacyTraits(
                     rs.getString("code"), rs.getBoolean("morena"), rs.getString("bloc_code")))
@@ -231,7 +274,7 @@ public class HistoryQueryRepository {
   /**
    * Participación de cada sección del estado, con su municipio y distritos (sin el municipio 0).
    */
-  public List<SectionTurnoutRow> sectionTurnout(int electionId) {
+  public List<SectionTurnoutRow> sectionTurnout(int electionId, int state) {
     return jdbc.query(
         "SELECT t.section, t.municipality_cve,"
             + "       max(t.local_district) AS local_district,"
@@ -240,10 +283,11 @@ public class HistoryQueryRepository {
             + "       coalesce(sum(t.total_votes), 0) AS total_votes,"
             + "       coalesce(sum(t.ordinary_votes), 0) AS ordinary_votes"
             + "  FROM mv_section_turnout t"
-            + " WHERE t.election_id = :election AND t.municipality_cve > 0 AND t.section > 0"
+            + " WHERE t.election_id = :election AND t.state_id = :state"
+            + "   AND t.municipality_cve > 0 AND t.section > 0"
             + " GROUP BY t.section, t.municipality_cve"
             + " ORDER BY t.section",
-        new MapSqlParameterSource("election", electionId),
+        new MapSqlParameterSource("election", electionId).addValue("state", state),
         (rs, i) ->
             new SectionTurnoutRow(
                 rs.getInt("section"),
@@ -256,21 +300,23 @@ public class HistoryQueryRepository {
   }
 
   /** Votos por sección de todo el estado en la agrupación pedida (sin el municipio 0). */
-  public List<GroupRow> sectionGroups(int electionId, String groupBy) {
+  public List<GroupRow> sectionGroups(int electionId, int state, String groupBy) {
     return jdbc.query(
         "SELECT g.section AS territory, g.code, sum(g.votes) AS votes"
             + "  FROM mv_section_group g"
-            + " WHERE g.election_id = :election AND g.group_by = :groupBy"
+            + " WHERE g.election_id = :election AND g.state_id = :state AND g.group_by = :groupBy"
             + "   AND g.municipality_cve > 0 AND g.section > 0"
             + " GROUP BY 1, 2",
-        new MapSqlParameterSource("election", electionId).addValue("groupBy", groupBy),
+        new MapSqlParameterSource("election", electionId)
+            .addValue("state", state)
+            .addValue("groupBy", groupBy),
         (rs, i) -> new GroupRow(rs.getInt("territory"), rs.getString("code"), rs.getLong("votes")));
   }
 
   // ─────────────────────────── una sección en todas las elecciones
 
   /** La participación de una sección en cada elección donde aparece. */
-  public List<SectionElectionTurnout> sectionHistoryTurnout(int section) {
+  public List<SectionElectionTurnout> sectionHistoryTurnout(int state, int section) {
     return jdbc.query(
         "SELECT t.election_id, max(t.municipality_cve) AS municipality_cve,"
             + "       coalesce(sum(t.nominal_list), 0) AS nominal_list,"
@@ -279,9 +325,9 @@ public class HistoryQueryRepository {
             + "       coalesce(sum(t.null_votes), 0) AS null_votes,"
             + "       coalesce(sum(t.non_registered_votes), 0) AS non_registered_votes"
             + "  FROM mv_section_turnout t"
-            + " WHERE t.section = :section AND t.municipality_cve > 0"
+            + " WHERE t.state_id = :state AND t.section = :section AND t.municipality_cve > 0"
             + " GROUP BY t.election_id",
-        new MapSqlParameterSource("section", section),
+        new MapSqlParameterSource("section", section).addValue("state", state),
         (rs, i) ->
             new SectionElectionTurnout(
                 rs.getInt("election_id"),
@@ -294,13 +340,16 @@ public class HistoryQueryRepository {
   }
 
   /** Los votos de una sección en cada elección, en la agrupación pedida. */
-  public List<SectionElectionGroup> sectionHistoryGroups(int section, String groupBy) {
+  public List<SectionElectionGroup> sectionHistoryGroups(int state, int section, String groupBy) {
     return jdbc.query(
         "SELECT g.election_id, g.code, sum(g.votes) AS votes"
             + "  FROM mv_section_group g"
-            + " WHERE g.section = :section AND g.group_by = :groupBy AND g.municipality_cve > 0"
+            + " WHERE g.state_id = :state AND g.section = :section AND g.group_by = :groupBy"
+            + "   AND g.municipality_cve > 0"
             + " GROUP BY 1, 2",
-        new MapSqlParameterSource("section", section).addValue("groupBy", groupBy),
+        new MapSqlParameterSource("section", section)
+            .addValue("state", state)
+            .addValue("groupBy", groupBy),
         (rs, i) ->
             new SectionElectionGroup(
                 rs.getInt("election_id"), rs.getString("code"), rs.getLong("votes")));

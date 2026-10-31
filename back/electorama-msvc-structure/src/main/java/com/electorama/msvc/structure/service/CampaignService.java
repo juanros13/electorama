@@ -3,10 +3,13 @@ package com.electorama.msvc.structure.service;
 import com.electorama.msvc.structure.exception.StructureException;
 import com.electorama.msvc.structure.model.dto.CampaignSummary;
 import com.electorama.msvc.structure.model.entity.Campaign;
+import com.electorama.msvc.structure.model.entity.CampaignLevel;
 import com.electorama.msvc.structure.model.enums.CampaignStatus;
 import com.electorama.msvc.structure.model.projection.CampaignElectionRow;
+import com.electorama.msvc.structure.model.repository.CampaignLevelRepository;
 import com.electorama.msvc.structure.model.repository.CampaignRepository;
 import com.electorama.msvc.structure.model.repository.StructureRepository;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,6 +31,7 @@ public class CampaignService {
 
   private final CampaignRepository campaigns;
   private final StructureRepository structures;
+  private final CampaignLevelRepository levels;
 
   @Transactional(readOnly = true)
   public List<CampaignSummary> all() {
@@ -43,6 +47,21 @@ public class CampaignService {
   public CampaignSummary active() {
     Long id = activeId();
     return all().stream().filter(c -> c.id().equals(id)).findFirst().orElseThrow();
+  }
+
+  /** Una campaña con todo lo que se configura: estructuras, cargos y niveles. */
+  @Transactional(readOnly = true)
+  public CampaignSummary detail(Long id) {
+    return all().stream()
+        .filter(c -> c.id().equals(id))
+        .findFirst()
+        .orElseThrow(() -> StructureException.notFound("la campaña", id));
+  }
+
+  /** Los niveles de la campaña pedida (o la activa), de la cúspide hacia abajo. */
+  @Transactional(readOnly = true)
+  public List<CampaignLevel> levels(Long campaignId) {
+    return levels.findByCampaignIdOrderByRank(resolve(campaignId));
   }
 
   /** La campaña pedida si existe; si no se pide, la activa. */
@@ -75,6 +94,8 @@ public class CampaignService {
   }
 
   private CampaignSummary summary(Campaign c, List<CampaignElectionRow> elections) {
+    Map<Long, Long> usage = new HashMap<>();
+    levels.usage(c.getId()).forEach(u -> usage.put(u.getLevelId(), u.getPositions()));
     return new CampaignSummary(
         c.getId(),
         c.getName(),
@@ -82,6 +103,14 @@ public class CampaignService {
         c.getYear(),
         c.getElectionDay(),
         c.getStatus().name(),
+        c.getTerritory() == null ? null : c.getTerritory().getId(),
+        c.getTerritory() == null ? null : c.getTerritory().getName(),
+        c.getTerritory() == null ? null : c.getTerritory().getStateGeoId(),
+        c.getTerritory() == null ? null : c.getTerritory().getMunicipalityGeoId(),
+        c.getGoalPercentage(),
+        c.getStartDate(),
+        c.getEndDate(),
+        c.getDescription(),
         structures.findByCampaignIdOrderById(c.getId()).stream()
             .map(s -> new CampaignSummary.StructureRef(s.getId(), s.getName(), s.getType().name()))
             .toList(),
@@ -90,6 +119,25 @@ public class CampaignService {
                 e ->
                     new CampaignSummary.ElectionRef(
                         e.getOffice(), e.getScope(), e.getSeats(), e.getElectionDay()))
+            .toList(),
+        levels.findByCampaignIdOrderByRank(c.getId()).stream()
+            .map(l -> levelRef(l, usage.getOrDefault(l.getId(), 0L)))
             .toList());
+  }
+
+  static CampaignSummary.LevelRef levelRef(CampaignLevel l, long positions) {
+    return new CampaignSummary.LevelRef(
+        l.getId(),
+        l.getRank(),
+        l.getCode(),
+        l.getNameSingular(),
+        l.getNamePlural(),
+        l.getTerritoryType() == null ? null : l.getTerritoryType().name(),
+        l.getDefaultGoal(),
+        l.getDefaultChildLimit(),
+        l.getLevelFunction() == null ? null : l.getLevelFunction().name(),
+        l.getRoleName(),
+        l.getAlternateRoleName(),
+        positions);
   }
 }

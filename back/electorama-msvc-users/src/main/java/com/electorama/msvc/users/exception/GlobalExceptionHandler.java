@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -39,6 +40,18 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
     return ResponseEntity.badRequest()
         .body(ErrorResponse.builder().code("BAD_REQUEST").message(ex.getMessage()).build());
+  }
+
+  /** Un cuerpo que no pasa {@code @Valid}: 400 con el primer campo que falla. */
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  ResponseEntity<ErrorResponse> handleInvalid(MethodArgumentNotValidException ex) {
+    String message =
+        ex.getBindingResult().getFieldErrors().stream()
+            .findFirst()
+            .map(f -> f.getField() + ": " + f.getDefaultMessage())
+            .orElse("Datos inválidos");
+    return ResponseEntity.badRequest()
+        .body(ErrorResponse.builder().code("BAD_REQUEST").message(message).build());
   }
 
   // Cualquier otra cosa: 500 con mensaje genérico; la causa real va al log, no al cliente.

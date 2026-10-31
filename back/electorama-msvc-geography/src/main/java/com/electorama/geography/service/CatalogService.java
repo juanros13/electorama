@@ -5,6 +5,7 @@ import com.electorama.geography.model.dto.catalog.CatalogMunicipality;
 import com.electorama.geography.model.dto.catalog.CatalogPage;
 import com.electorama.geography.model.dto.catalog.CatalogSection;
 import com.electorama.geography.model.dto.catalog.CatalogSummary;
+import com.electorama.geography.model.dto.catalog.GoalUpdateRequest;
 import com.electorama.geography.model.repository.CatalogQueryRepository;
 import com.electorama.geography.model.repository.CatalogQueryRepository.SectionChange;
 import com.electorama.geography.model.repository.CatalogQueryRepository.SectionFilter;
@@ -98,6 +99,18 @@ public class CatalogService {
       throw notFound("la sección", change.id());
     }
     return section(change.id());
+  }
+
+  /** El % de meta de una campaña sobre su territorio; devuelve el resumen ya recalculado. */
+  @Transactional
+  public CatalogSummary applyGoalPercentage(GoalUpdateRequest request) {
+    if (catalog.applyGoalPercentage(
+            request.stateId(), request.municipalityId(), request.goalPercentage())
+        == 0) {
+      throw notFound("secciones vigentes en el estado", request.stateId().longValue());
+    }
+    return summarizeSections(
+        new SectionFilter(request.stateId(), request.municipalityId(), null, null, true, null));
   }
 
   /** El catálogo de municipios está en caché (ver MunicipalityServiceImpl): se vacía entero. */

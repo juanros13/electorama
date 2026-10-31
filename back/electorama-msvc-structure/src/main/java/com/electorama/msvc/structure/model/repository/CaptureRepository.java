@@ -100,7 +100,7 @@ public class CaptureRepository {
                 + " VALUES (:curp, :ine, :names, :lastName, :surName, :birthdate,"
                 + "         :phone, :phoneOther, :email, :street,"
                 + "         :externalNumber, :internalNumber, :neighborhood, :zipCode,"
-                + "         27, :ineValidity)"
+                + "         (SELECT state_geo_id FROM territory WHERE id = :territory), :ineValidity)"
                 + " RETURNING id",
             p,
             Long.class);

@@ -6,7 +6,6 @@ import com.electorama.msvc.users.model.dto.AccountResponse;
 import com.electorama.msvc.users.model.dto.AccountSummary;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.CredentialRepresentation;
@@ -25,21 +24,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AccountService {
 
-  /** Los roles que se pueden dar desde la estructura. Los nombres van con sus erratas del realm. */
-  public static final Set<String> STRUCTURE_ROLES =
-      Set.of(
-          "CORDINATOR_MUNICIPAL",
-          "CORDINATOR_MUNICIPAL_ALT",
-          "CORDINATOR_ZONE",
-          "CORDINATOR_ZONE_ALT",
-          "PROMOTER");
-
   private final KeycloakUserService keycloak;
 
+  /** Los roles que se pueden dar desde la estructura (V3: los de los niveles de cada campaña). */
+  private final StructureRoles structureRoles;
+
   public AccountResponse create(AccountRequest request) {
-    if (!STRUCTURE_ROLES.contains(request.role())) {
-      throw ApiException.badRequest("El rol debe ser uno de " + STRUCTURE_ROLES);
-    }
+    requireStructureRole(request.role());
     String username = request.email().trim().toLowerCase();
 
     keycloak
@@ -84,9 +75,7 @@ public class AccountService {
    * puesto pero no ve sus pantallas.
    */
   public void grantRole(String authId, String role) {
-    if (!STRUCTURE_ROLES.contains(role)) {
-      throw ApiException.badRequest("El rol debe ser uno de " + STRUCTURE_ROLES);
-    }
+    requireStructureRole(role);
     keycloak.readUser(authId);
     if (keycloak.realmRoles(authId).contains(role)) {
       return;
@@ -100,11 +89,15 @@ public class AccountService {
    * misma rama y el anterior queda vacante.
    */
   public void revokeRole(String authId, String role, String changedBy) {
-    if (!STRUCTURE_ROLES.contains(role)) {
-      throw ApiException.badRequest("El rol debe ser uno de " + STRUCTURE_ROLES);
-    }
+    requireStructureRole(role);
     keycloak.removeRealmRole(authId, role);
     log.info("rol {} quitado a la cuenta {} por {}", role, authId, changedBy);
+  }
+
+  private void requireStructureRole(String role) {
+    if (!structureRoles.isStructureRole(role)) {
+      throw ApiException.badRequest("El rol " + role + " no es de la estructura");
+    }
   }
 
   /** Los datos de la cuenta para el perfil del organigrama. */
@@ -112,7 +105,7 @@ public class AccountService {
     UserRepresentation user = keycloak.readUser(authId);
     List<String> roles =
         keycloak.realmRoles(authId).stream()
-            .filter(r -> STRUCTURE_ROLES.contains(r) || "ADMIN".equals(r))
+            .filter(r -> structureRoles.isStructureRole(r) || "ADMIN".equals(r))
             .sorted()
             .toList();
     return new AccountSummary(

@@ -30,6 +30,16 @@ public interface UsersClient {
   @DeleteMapping("/v2/accounts/{authId}/roles/{role}")
   void revokeRole(@PathVariable("authId") String authId, @PathVariable("role") String role);
 
+  /**
+   * Crea el rol del realm si falta y lo registra como rol de estructura con su antigüedad (mayor es
+   * más alto). {@code copyMenusFrom}: el rol heredado del que copia sus menús, si es nuevo.
+   */
+  @PostMapping("/v2/roles/ensure")
+  void ensureRole(@RequestBody RoleSpec spec);
+
+  record RoleSpec(
+      String role, int seniority, Long campaignId, String description, String copyMenusFrom) {}
+
   record AccountRequest(
       String email, String password, String firstName, String lastName, String role) {
 

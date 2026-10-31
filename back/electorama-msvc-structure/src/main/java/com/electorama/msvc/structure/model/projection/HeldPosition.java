@@ -14,12 +14,20 @@ public interface HeldPosition {
 
   String getTerritoryCode();
 
+  /** El rol de su nivel y, si lo tiene, el de la estructura alterna. */
+  String getRoleName();
+
+  String getAlternateRoleName();
+
   /** MAIN o ALTERNATE: decide el rol (_ALT). */
   String getStructureType();
 
   /** ACTIVE, PLANNING o CLOSED: lo de una campaña cerrada ya no pide rol. */
   String getCampaignStatus();
 
-  /** El referente raíz de su rama; el propio puesto si es referente. */
+  /**
+   * La raíz de su rama: el puesto con función REFERENT del que cuelga (el propio puesto si lo es)
+   * o, si no hay, el de la cúspide.
+   */
   Long getRootId();
 }

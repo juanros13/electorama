@@ -58,8 +58,10 @@
     } @else if (!loadingRoots() && !rows().length) {
       <p class="-mt-2 flex items-start gap-2 rounded-lg bg-neutral-100 p-3 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
         <mat-icon svgIcon="info" class="mt-px shrink-0 icon-size-3.5" />
-        {{ c.name }} arranca sin estructura: todavía no hay coordinadores, promotores ni movilizadores.
-        La de {{ c.year - 3 }} se consulta en su pestaña.
+        {{ c.name }} arranca sin estructura: todavía no hay {{ (topLevel()?.namePlural ?? 'puestos').toLowerCase() }}.
+        @if (c.year) {
+          La de {{ c.year - 3 }} se consulta en su pestaña.
+        }
       </p>
     }
   }
@@ -68,9 +70,9 @@
   @if (campaign() && !readOnly() && canBuild()) {
     <div class="-mt-2 flex flex-wrap items-end gap-3">
       <button matButton="filled" (click)="newReferentOpen.set(!newReferentOpen())">
-        <mat-icon svgIcon="plus" class="icon-size-4" /> Nuevo coordinador
+        <mat-icon svgIcon="plus" class="icon-size-4" /> Nuevo {{ (topLevel()?.nameSingular ?? 'puesto').toLowerCase() }}
       </button>
-      @if (newReferentOpen()) {
+      @if (newReferentOpen() && topOnMunicipality()) {
         <label class="flex min-w-64 flex-col gap-1">
           <span class="text-2xs tracking-wider text-neutral-500 uppercase">Municipio</span>
           <select
@@ -80,11 +82,13 @@
             <option value="">Elige un municipio</option>
             @for (m of municipalities(); track m.id) {
               <option [value]="m.id" [disabled]="withReferent().has(m.id)">
-                {{ m.name }} · meta {{ m.meta | number }}{{ withReferent().has(m.id) ? ' · ya tiene coordinador' : '' }}
+                {{ m.name }} · meta {{ m.meta | number }}{{ withReferent().has(m.id) ? ' · ya tiene ' + ((topLevel()?.nameSingular ?? '').toLowerCase()) : '' }}
               </option>
             }
           </select>
         </label>
+      }
+      @if (newReferentOpen()) {
         <label class="flex flex-col gap-1">
           <span class="text-2xs tracking-wider text-neutral-500 uppercase">Meta</span>
           <input
@@ -97,10 +101,10 @@
         </label>
         <button
           matButton="outlined"
-          [disabled]="creatingReferent() || newReferentMunicipality() == null"
+          [disabled]="creatingReferent() || (topOnMunicipality() && newReferentMunicipality() == null)"
           (click)="createReferent()"
         >
-          {{ creatingReferent() ? 'Creando…' : 'Crear coordinador' }}
+          {{ creatingReferent() ? 'Creando…' : 'Crear ' + ((topLevel()?.nameSingular ?? 'puesto').toLowerCase()) }}
         </button>
       }
     </div>
@@ -109,7 +113,7 @@
   <!-- Los números del puesto elegido: el subárbol completo, no sólo su fila -->
   <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
     <app-stat-card
-      [label]="canBuild() ? 'Coordinadores en la estructura' : 'Puestos a tu cargo'"
+      [label]="canBuild() ? (topLevel()?.namePlural ?? 'Puestos') + ' en la estructura' : 'Puestos a tu cargo'"
       [value]="roots()"
       accent="secondary"
     />
@@ -251,14 +255,8 @@
                 <!-- el nivel se lee por la forma, no por la etiqueta -->
                 <span
                   class="mr-2.5 shrink-0"
-                  [matTooltip]="levelLabel(row.position.level)"
-                  [class]="
-                    row.position.level === 'REFERENT'
-                      ? 'size-2.5 rounded-sm bg-primary-600'
-                      : row.position.level === 'ZONE_COORDINATOR'
-                        ? 'size-2.5 rounded-sm border-2 border-secondary-600'
-                        : 'size-1.5 rounded-full bg-neutral-400'
-                  "
+                  [matTooltip]="row.position.levelName"
+                  [class]="levelShape(row.position.level)"
                 ></span>
               </div>
 
@@ -409,20 +407,12 @@
         >
           <span>{{ rows().length }} puestos a la vista</span>
           <span class="flex items-center gap-3">
-            <span class="flex items-center gap-1.5">
-              <span class="size-2 rounded-sm bg-primary-600"></span>
-              {{ levelLabel('REFERENT').toLowerCase() }}
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span
-                class="size-2 rounded-sm border-2 border-secondary-600"
-              ></span>
-              {{ levelLabel('ZONE_COORDINATOR').toLowerCase() }}
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="size-1.5 rounded-full bg-neutral-400"></span>
-              {{ levelLabel('PROMOTER').toLowerCase() }}
-            </span>
+            @for (l of levels(); track l.id) {
+              <span class="flex items-center gap-1.5">
+                <span [class]="levelShape(l.function)"></span>
+                {{ l.nameSingular.toLowerCase() }}
+              </span>
+            }
           </span>
         </div>
       </div>
@@ -437,7 +427,7 @@
               <div
                 class="text-2xs font-semibold tracking-widest text-secondary-700 uppercase dark:text-secondary-400"
               >
-                {{ levelLabel(pos.level) }}
+                {{ pos.levelName }}
               </div>
               <h2 class="mt-1 truncate font-display text-2xl font-bold">
                 {{ pos.holderName || 'Puesto vacante' }}
@@ -574,6 +564,7 @@
           @if (!readOnly()) {
             <app-position-actions
               [position]="pos"
+              [levels]="levels()"
               [canBuild]="canBuild()"
               (changed)="onChanged($event)"
             />

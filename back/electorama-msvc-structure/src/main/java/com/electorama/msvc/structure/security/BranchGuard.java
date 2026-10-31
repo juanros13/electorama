@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BranchGuard {
 
+  /** Los roles de los tres niveles heredados; los de niveles nuevos se resuelven por el puesto. */
   static final Set<String> STRUCTURE_ROLES =
       Set.of(
           "ROLE_CORDINATOR_MUNICIPAL",
@@ -46,9 +47,17 @@ public class BranchGuard {
     return hasAny(Set.of("ROLE_ADMIN"));
   }
 
-  /** Si quien llama tiene un rol de la estructura (el puesto concreto lo dice la base). */
+  /**
+   * Si quien llama es de la estructura: tiene uno de los roles heredados o, con los niveles por
+   * campaña (V3), ocupa algún puesto vigente. El puesto concreto lo dice la base.
+   */
+  @Transactional(readOnly = true)
   public boolean isStructureMember() {
-    return hasAny(STRUCTURE_ROLES);
+    if (hasAny(STRUCTURE_ROLES)) {
+      return true;
+    }
+    String authId = callerAuthId();
+    return authId != null && positions.holdsAnyPosition(authId);
   }
 
   /** El authId (UUID de Keycloak) de quien llama; null sin token. */

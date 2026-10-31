@@ -30,7 +30,8 @@ public class TrendController {
   public TrendReport trend(
       @RequestParam String office,
       @RequestParam(defaultValue = "bloc") String groupBy,
-      @RequestParam(defaultValue = "MUNICIPALITY") TerritoryLevel level) {
-    return elections.trend(office, groupBy, level);
+      @RequestParam(defaultValue = "MUNICIPALITY") TerritoryLevel level,
+      @RequestParam(defaultValue = "27") int stateId) {
+    return elections.trend(stateId, office, groupBy, level);
   }
 }

@@ -25,6 +25,11 @@ const routes: Routes = [
     loadComponent: () => import('./features/campaign-dashboard'),
   },
   {
+    path: 'campaigns',
+    canMatch: [canSee('structure.campaigns')],
+    loadComponent: () => import('./features/campaign-config'),
+  },
+  {
     path: 'organization',
     canMatch: [canSee('structure.organization')],
     loadComponent: () => import('./features/organization-tree'),

@@ -27,6 +27,8 @@ import {
 import { OrganizationService } from '../data/organization.service';
 import { PositionSummary } from '../data/organization.types';
 import { TerritoryService } from '../data/territory.service';
+import { WorkingCampaign } from '../data/working-campaign';
+import { stateName } from '../../electoral-history/data/states';
 import {
   CatalogDistrict,
   CatalogMunicipality,
@@ -38,8 +40,6 @@ import {
   SectionLocality,
 } from '../data/territory.types';
 
-/** El estado de campaña. La API acepta cualquiera; la operación es Tabasco. */
-const STATE_ID = 27;
 const PAGE_SIZE = 50;
 
 type Tab = 'sections' | 'municipalities' | 'federal' | 'local';
@@ -86,6 +86,7 @@ export default class TerritoryCatalog {
   private territory = inject(TerritoryService);
   private organization = inject(OrganizationService);
   private destroyRef = inject(DestroyRef);
+  private working = inject(WorkingCampaign);
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly levelName = levelName;
@@ -197,10 +198,19 @@ export default class TerritoryCatalog {
   protected renaming = signal<number | null>(null);
   protected renameDraft = signal('');
 
+  /** El estado de la campaña de trabajo. */
+  protected stateName = computed(() => stateName(this.working.stateId()));
+
   constructor() {
-    this.loadCatalogs();
-    this.loadSections();
-    this.loadSummary();
+    // el catálogo es el del estado de la campaña con la que se trabaja
+    this.working
+      .load()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.loadCatalogs();
+        this.loadSections();
+        this.loadSummary();
+      });
   }
 
   // ======================================================================
@@ -211,13 +221,13 @@ export default class TerritoryCatalog {
     this.catalogsLoading.set(true);
     forkJoin({
       municipalities: this.territory
-        .getMunicipalities(STATE_ID)
+        .getMunicipalities(this.working.stateId())
         .pipe(catchError(() => of([] as CatalogMunicipality[]))),
       federal: this.territory
-        .getFederalDistricts(STATE_ID)
+        .getFederalDistricts(this.working.stateId())
         .pipe(catchError(() => of([] as CatalogDistrict[]))),
       local: this.territory
-        .getLocalDistricts(STATE_ID)
+        .getLocalDistricts(this.working.stateId())
         .pipe(catchError(() => of([] as CatalogDistrict[]))),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -232,7 +242,7 @@ export default class TerritoryCatalog {
   protected loadSections(): void {
     this.sectionsLoading.set(true);
     this.territory
-      .getSections(STATE_ID, this.filter(), this.page(), PAGE_SIZE)
+      .getSections(this.working.stateId(), this.filter(), this.page(), PAGE_SIZE)
       .pipe(
         catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef)
@@ -257,7 +267,7 @@ export default class TerritoryCatalog {
    */
   private loadSummary(): void {
     this.territory
-      .getSectionsSummary(STATE_ID, this.filter())
+      .getSectionsSummary(this.working.stateId(), this.filter())
       .pipe(
         catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef)
@@ -272,7 +282,7 @@ export default class TerritoryCatalog {
       return;
     }
     this.organization
-      .getSectionGoals(ids)
+      .getSectionGoals(ids, this.working.campaign()?.id)
       .pipe(
         catchError(() => of([] as SectionGoal[])),
         takeUntilDestroyed(this.destroyRef)
@@ -394,7 +404,7 @@ export default class TerritoryCatalog {
     this.draftMeta.set(section.meta ?? null);
     this.draftNominalList.set(section.nominalList ?? null);
     this.draftPercentage.set(
-      section.goalPercentage ?? DEFAULT_GOAL_PERCENTAGE
+      section.goalPercentage ?? this.working.goalPercentage()
     );
     this.draftStatus.set(section.status ?? false);
     this.newLocality.set('');
@@ -411,7 +421,7 @@ export default class TerritoryCatalog {
     this.positionsLoading.set(true);
     this.positions.set([]);
     this.organization
-      .getBySection(sectionId)
+      .getBySection(sectionId, this.working.campaign()?.id)
       .pipe(
         catchError(() => of([] as PositionSummary[])),
         takeUntilDestroyed(this.destroyRef)
@@ -606,7 +616,7 @@ export default class TerritoryCatalog {
   private afterLocalityChange(section: CatalogSection): void {
     this.loadLocalities(section.id);
     this.territory
-      .getSections(STATE_ID, { q: section.section, status: null }, 0, PAGE_SIZE)
+      .getSections(this.working.stateId(), { q: section.section, status: null }, 0, PAGE_SIZE)
       .pipe(
         catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef)

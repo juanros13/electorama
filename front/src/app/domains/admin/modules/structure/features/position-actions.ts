@@ -1,4 +1,4 @@
-import { LEVEL_NAMES } from '@/app/core/data/levels';
+import { functionName, nextLevel } from '@/app/core/data/levels';
 import { confirmDialog, showError, showSuccess, showWarning } from '@/app/shared/ui/swal';
 import { generatePassword } from '@/app/shared/utils/credentials';
 import { DecimalPipe } from '@angular/common';
@@ -20,20 +20,21 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { catchError, forkJoin, map, Observable, of } from 'rxjs';
-import { META_PER_MOBILIZER, META_PER_PROMOTER } from '../data/campaign-rules';
+import { CampaignAdminService } from '../data/campaign-admin.service';
 import { OrganizationService } from '../data/organization.service';
 import {
   AccountMode,
   AppointRequest,
+  CampaignLevel,
+  TerritoryOption,
   PersonLite,
   PositionSummary,
   LinkPlan,
   SectionSeat,
 } from '../data/organization.types';
 import { TerritoryService } from '../data/territory.service';
+import { WorkingCampaign } from '../data/working-campaign';
 import { UserService } from '@/app/core/user/user.service';
-
-const STATE_ID = 27;
 
 type Panel = 'none' | 'addChild' | 'vacancies' | 'appoint';
 
@@ -71,9 +72,13 @@ export class PositionActions {
   private organization = inject(OrganizationService);
   private territory = inject(TerritoryService);
   private users = inject(UserService);
+  private campaignAdmin = inject(CampaignAdminService);
   private destroyRef = inject(DestroyRef);
+  private working = inject(WorkingCampaign);
 
   position = input.required<PositionSummary>();
+  /** Los niveles de la campaña del puesto (V3): qué va debajo y con qué meta. */
+  levels = input<CampaignLevel[]>([]);
   /**
    * Quien arma la estructura (ADMIN). Sin esto, en los puestos de abajo sólo se
    * nombra titular en vacantes y se deja vacante (quitar a un promotor): el
@@ -83,7 +88,6 @@ export class PositionActions {
   canBuild = input(true);
   changed = output<StructureChange>();
 
-  protected readonly levels = LEVEL_NAMES;
   protected panel = signal<Panel>('none');
   protected busy = signal(false);
 
@@ -108,23 +112,44 @@ export class PositionActions {
     () => this.canBuild() || this.canAppoint() || this.canVacate()
   );
 
-  protected childLevel = computed(() => {
-    const level = this.position().level;
-    return level === 'REFERENT' ? 'ZONE_COORDINATOR' : level === 'ZONE_COORDINATOR' ? 'PROMOTER' : null;
+  /** El nivel del puesto y el que va debajo, según la campaña. */
+  protected ownLevel = computed(() => this.levels().find((l) => l.id === this.position().levelId) ?? null);
+  protected childLevel = computed(() => nextLevel(this.levels(), this.position().levelRank));
+  protected childLabel = computed(() => this.childLevel()?.nameSingular.toLowerCase() ?? '');
+  protected childPlural = computed(() => this.childLevel()?.namePlural.toLowerCase() ?? '');
+  /** El nivel de abajo va sobre sección (o donde se elija): sus vacantes se reparten por sección. */
+  private childOnSection = computed(() => {
+    const t = this.childLevel()?.territoryType;
+    return t === 'SECTION' || t == null;
   });
-  protected childLabel = computed(() => {
-    const level = this.childLevel();
-    return level ? LEVEL_NAMES[level].one.toLowerCase() : '';
+  /** Al agregar uno debajo hay que elegir la sección (si el puesto no es ya de una sección). */
+  protected childNeedsSection = computed(() => {
+    const child = this.childLevel();
+    const onSection = child?.territoryType === 'SECTION' || (child?.territoryType == null && child?.function === 'ZONE_COORDINATOR');
+    return !!child && onSection && this.position().territoryType !== 'SECTION';
   });
-  /** Bajo un promotor: cuántos movilizadores pide su meta y cuántos faltan. */
+  /** …o el municipio, si el nivel de abajo va sobre municipio y el puesto está más arriba. */
+  protected childNeedsMunicipality = computed(
+    () => this.childLevel()?.territoryType === 'MUNICIPALITY' && this.position().territoryType !== 'MUNICIPALITY'
+  );
+  /** Vacantes por sección para todo el municipio del puesto. */
+  protected canGenerateBySection = computed(
+    () => !!this.childLevel()?.defaultGoal && this.childOnSection() && this.position().territoryType === 'MUNICIPALITY'
+  );
+  /** En un puesto de sección: cuántos del nivel de abajo pide su meta y cuántos faltan. */
   protected mobilizersMissing = computed(() => {
     const p = this.position();
-    if (p.level !== 'ZONE_COORDINATOR') {
+    const child = this.childLevel();
+    if (p.territoryType !== 'SECTION' || !child?.defaultGoal || !this.childOnSection()) {
       return 0;
     }
-    const needed = Math.ceil((p.goal ?? META_PER_PROMOTER) / META_PER_MOBILIZER);
-    return Math.max(0, needed - p.childCount);
+    const goal = p.goal ?? this.ownLevel()?.defaultGoal ?? 0;
+    return Math.max(0, Math.ceil(goal / child.defaultGoal) - p.childCount);
   });
+
+  /** Los municipios dentro del territorio del puesto, para un nivel que va sobre municipio. */
+  protected municipalityOptions = signal<TerritoryOption[]>([]);
+  protected newTerritory = signal<number | null>(null);
 
   // ------------------------------------------------------------ secciones del referente
 
@@ -172,6 +197,7 @@ export class PositionActions {
     this.panel.set('none');
     this.sections.set([]);
     this.newSection.set(null);
+    this.newTerritory.set(null);
     this.newGoal.set(null);
     this.query.set('');
     this.found.set([]);
@@ -195,11 +221,35 @@ export class PositionActions {
       this.loadSectionSeats();
     }
     if (this.panel() === 'addChild') {
-      this.newGoal.set(p.level === 'REFERENT' ? META_PER_PROMOTER : META_PER_MOBILIZER);
+      this.newGoal.set(this.childLevel()?.defaultGoal ?? null);
+      if (this.childNeedsMunicipality()) {
+        this.loadMunicipalities();
+      }
     }
-    if ((this.panel() === 'addChild' || this.panel() === 'vacancies') && p.level === 'REFERENT') {
+    if (
+      (this.panel() === 'addChild' && this.childNeedsSection() && p.territoryType === 'MUNICIPALITY') ||
+      this.panel() === 'vacancies'
+    ) {
       this.loadSections();
     }
+  }
+
+  /** Los municipios que cuelgan del territorio del puesto (el estado de la campaña). */
+  private loadMunicipalities(): void {
+    const p = this.position();
+    this.campaignAdmin
+      .territoryOptions()
+      .pipe(
+        catchError(() => of([] as TerritoryOption[])),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((all) =>
+        this.municipalityOptions.set(
+          all
+            .filter((t) => t.type === 'MUNICIPALITY' && (p.territoryType !== 'STATE' || t.parentId === p.territoryId))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        )
+      );
   }
 
   /** Las secciones del municipio con su meta 2027 y cuántos promotores ya tienen. */
@@ -208,9 +258,10 @@ export class PositionActions {
     if (p.municipalityGeoId == null) {
       return;
     }
+    const per = this.childLevel()?.defaultGoal ?? 0;
     this.sectionsLoading.set(true);
     forkJoin({
-      catalog: this.territory.getSections(STATE_ID, { municipalityId: p.municipalityGeoId, status: true }, 0, 500),
+      catalog: this.territory.getSections(this.working.stateId(), { municipalityId: p.municipalityGeoId, status: true }, 0, 500),
       children: this.organization.getChildren(p.id),
     })
       .pipe(
@@ -237,7 +288,7 @@ export class PositionActions {
               sectionGeoId: s.id,
               section: s.section,
               meta: s.meta ?? 0,
-              needed: Math.ceil((s.meta ?? 0) / META_PER_PROMOTER),
+              needed: per ? Math.ceil((s.meta ?? 0) / per) : 0,
               existing: existing.get(s.id) ?? 0,
             }))
             .sort((a, b) => a.section.localeCompare(b.section))
@@ -253,15 +304,20 @@ export class PositionActions {
     if (!level) {
       return;
     }
-    if (level === 'ZONE_COORDINATOR' && this.newSection() == null) {
-      showError('Elige la sección del promotor');
+    if (this.childNeedsSection() && this.newSection() == null) {
+      showError(`Elige la sección del ${this.childLabel()}`);
+      return;
+    }
+    if (this.childNeedsMunicipality() && this.newTerritory() == null) {
+      showError(`Elige el municipio del ${this.childLabel()}`);
       return;
     }
     this.run(
       this.organization.createPosition({
-        level,
+        levelId: level.id,
         parentPositionId: p.id,
-        sectionGeoId: level === 'ZONE_COORDINATOR' ? (this.newSection() ?? undefined) : undefined,
+        sectionGeoId: this.childNeedsSection() ? (this.newSection() ?? undefined) : undefined,
+        territoryId: this.childNeedsMunicipality() ? (this.newTerritory() ?? undefined) : undefined,
         goal: this.newGoal(),
       }),
       () => {
@@ -277,7 +333,8 @@ export class PositionActions {
     if (!missing) {
       return;
     }
-    if (!(await confirmDialog(`¿Crear ${missing} promotores vacantes?`, 'Uno por cada 200 de meta en cada sección; sólo los que faltan.'))) {
+    const per = this.childLevel()?.defaultGoal;
+    if (!(await confirmDialog(`¿Crear ${missing} ${this.childPlural()} vacantes?`, `Uno por cada ${per} de meta en cada sección; sólo los que faltan.`))) {
       return;
     }
     const sections = this.sections()
@@ -285,7 +342,7 @@ export class PositionActions {
       .map((s) => ({ sectionGeoId: s.sectionGeoId, meta: s.meta }));
     this.run(this.organization.generateVacancies(p.id, sections), (result) => {
       const created = result.reduce((t, r) => t + r.created, 0);
-      showSuccess(`${created} promotores vacantes creados`);
+      showSuccess(`${created} ${this.childPlural()} vacantes creados`);
       this.panel.set('none');
       this.changed.emit({ kind: 'children', positionId: p.id, parentId: p.parentId });
     });
@@ -294,11 +351,12 @@ export class PositionActions {
   protected async completeMobilizers(): Promise<void> {
     const p = this.position();
     const missing = this.mobilizersMissing();
-    if (!missing || !(await confirmDialog(`¿Crear ${missing} movilizadores vacantes?`, `Uno por cada ${META_PER_MOBILIZER} de la meta del promotor.`))) {
+    const per = this.childLevel()?.defaultGoal;
+    if (!missing || !(await confirmDialog(`¿Crear ${missing} ${this.childPlural()} vacantes?`, `Uno por cada ${per} de la meta del puesto.`))) {
       return;
     }
     this.run(this.organization.generateVacancies(p.id), (result) => {
-      showSuccess(`${result.reduce((t, r) => t + r.created, 0)} movilizadores vacantes creados`);
+      showSuccess(`${result.reduce((t, r) => t + r.created, 0)} ${this.childPlural()} vacantes creados`);
       this.changed.emit({ kind: 'children', positionId: p.id, parentId: p.parentId });
     });
   }
@@ -481,7 +539,7 @@ export class PositionActions {
       ? [this.chosen()!.names, this.chosen()!.lastName].filter(Boolean).join(' ')
       : 'Esta cuenta';
     const seats = plan.vacates
-      .map((v) => `${LEVEL_NAMES[v.level]?.one ?? v.level} ${v.label}`)
+      .map((v) => `${functionName(this.levels(), v.level) || v.level} ${v.label}`)
       .join(', ');
     const roles = plan.rolesToRevoke.length
       ? ` y se le quitan los roles ${plan.rolesToRevoke.join(', ')}`

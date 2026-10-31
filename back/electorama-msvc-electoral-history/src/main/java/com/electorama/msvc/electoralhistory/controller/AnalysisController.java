@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -22,7 +23,8 @@ public class AnalysisController {
   private final AnalysisService analysis;
 
   @GetMapping("/{year}")
-  public AnalysisReport analysis(@PathVariable int year) {
-    return analysis.analysis(year);
+  public AnalysisReport analysis(
+      @PathVariable int year, @RequestParam(defaultValue = "27") int stateId) {
+    return analysis.analysis(stateId, year);
   }
 }
